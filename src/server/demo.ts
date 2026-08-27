@@ -248,6 +248,20 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
     const satoId = userIds.get("member")!;
     const tanakaId = userIds.get("admin")!;
 
+    const customerIds = new Map<
+      string,
+      { id: string; address: { postal: string; prefecture: string; city: string; rest: string } }
+    >();
+    const custRows = (await env.DB.prepare(
+      "SELECT id, name, addresses FROM customers WHERE org_id = ?",
+    )
+      .bind(orgId)
+      .all()) as any;
+    for (const r of custRows.results ?? []) {
+      const list = JSON.parse(r.addresses || "[]") as unknown[];
+      customerIds.set(r.name, { id: r.id, address: normalizeDemoAddress(list[0]) });
+    }
+
     const today = todayISO();
     const tomorrow = tomorrowISO();
 
@@ -325,15 +339,23 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
 
     for (const j of jobs) {
       const id = crypto.randomUUID();
+      const cust = customerIds.get(j.customer as string);
+      const addr = cust?.address ?? { postal: "", prefecture: "", city: "", rest: "" };
+      const joined = [addr.prefecture, addr.city, addr.rest].filter(Boolean).join("");
       await env.DB.prepare(
-        "INSERT INTO jobs (id, org_id, service_id, customer_name, address, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO jobs (id, org_id, service_id, customer_id, customer_name, address, address_postal, address_prefecture, address_city, address_rest, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       )
         .bind(
           id,
           orgId,
           serviceIds.get(j.svc) ?? null,
+          cust?.id ?? null,
           j.customer,
-          "",
+          addr.postal ? `〒${addr.postal} ${joined}` : joined,
+          addr.postal,
+          addr.prefecture,
+          addr.city,
+          addr.rest,
           j.date,
           j.start,
           j.dur,
@@ -358,3 +380,75 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
 }
 
 export const DEMO_LOGIN = { email: DEMO_EMAIL, password: DEMO_PASSWORD };
+
+function normalizeDemoAddress(value: unknown): {
+  postal: string;
+  prefecture: string;
+  city: string;
+  rest: string;
+} {
+  if (typeof value === "string") {
+    const prefs = [
+      "北海道",
+      "青森県",
+      "岩手県",
+      "宮城県",
+      "秋田県",
+      "山形県",
+      "福島県",
+      "茨城県",
+      "栃木県",
+      "群馬県",
+      "埼玉県",
+      "千葉県",
+      "東京都",
+      "神奈川県",
+      "新潟県",
+      "富山県",
+      "石川県",
+      "福井県",
+      "山梨県",
+      "長野県",
+      "岐阜県",
+      "静岡県",
+      "愛知県",
+      "三重県",
+      "滋賀県",
+      "京都府",
+      "大阪府",
+      "兵庫県",
+      "奈良県",
+      "和歌山県",
+      "鳥取県",
+      "島根県",
+      "岡山県",
+      "広島県",
+      "山口県",
+      "徳島県",
+      "香川県",
+      "愛媛県",
+      "高知県",
+      "福岡県",
+      "佐賀県",
+      "長崎県",
+      "熊本県",
+      "大分県",
+      "宮崎県",
+      "鹿児島県",
+      "沖縄県",
+    ];
+    const pref = prefs.find((p) => value.startsWith(p)) ?? "";
+    const body = pref ? value.slice(pref.length) : value;
+    return { postal: "", prefecture: pref, city: body, rest: "" };
+  }
+  if (typeof value === "object" && value !== null) {
+    const a = value as Record<string, unknown>;
+    return {
+      postal: String(a.postal ?? ""),
+      prefecture: String(a.prefecture ?? ""),
+      city: String(a.city ?? ""),
+      rest: String(a.rest ?? ""),
+    };
+  }
+  return { postal: "", prefecture: "", city: "", rest: "" };
+}

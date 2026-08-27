@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { CustomerAddress } from "../types";
 import { Input } from "./ui/input";
 
 export const PREFECTURES = [
@@ -51,57 +51,48 @@ export const PREFECTURES = [
   "沖縄県",
 ];
 
-export function splitAddress(s: string): { prefecture: string; city: string; rest: string } {
+export function splitAddress(s: string): CustomerAddress {
   const pref = PREFECTURES.find((p) => s.startsWith(p)) ?? "";
   const body = pref ? s.slice(pref.length) : s;
   const m = body.match(/^(.+?[市区郡町村])(.*)$/);
-  return { prefecture: pref, city: m ? m[1]! : body, rest: m && m[2] ? m[2] : "" };
+  return {
+    postal: "",
+    prefecture: pref,
+    city: m ? m[1]! : body,
+    rest: m && m[2] ? m[2] : "",
+  };
 }
 
 export function AddressFields({
   value,
   onChange,
-  compact,
 }: {
-  value: string;
-  onChange: (joined: string) => void;
-  compact?: boolean;
+  value: CustomerAddress;
+  onChange: (next: CustomerAddress) => void;
 }) {
-  const initial = splitAddress(value);
-  const [prefecture, setPrefecture] = useState(initial.prefecture);
-  const [city, setCity] = useState(initial.city);
-  const [rest, setRest] = useState(initial.rest);
-
-  const emit = (p: string, c: string, r: string) => {
-    onChange(`${p}${c}${r}`);
-  };
-
+  const set = (field: keyof CustomerAddress, v: string) => onChange({ ...value, [field]: v });
   return (
-    <div className={compact ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-2"}>
+    <div className="grid grid-cols-2 gap-2">
+      <Input
+        className="num"
+        placeholder="〒 郵便番号"
+        value={value.postal}
+        onChange={(e) => set("postal", e.target.value)}
+      />
       <Input
         placeholder="都道府県 (ex: 東京都)"
-        value={prefecture}
-        onChange={(e) => {
-          setPrefecture(e.target.value);
-          emit(e.target.value, city, rest);
-        }}
+        value={value.prefecture}
+        onChange={(e) => set("prefecture", e.target.value)}
       />
       <Input
         placeholder="市区町村 (ex: 渋谷区)"
-        value={city}
-        onChange={(e) => {
-          setCity(e.target.value);
-          emit(prefecture, e.target.value, rest);
-        }}
+        value={value.city}
+        onChange={(e) => set("city", e.target.value)}
       />
       <Input
         placeholder="以降 (町名・番地・建物)"
-        value={rest}
-        onChange={(e) => {
-          setRest(e.target.value);
-          emit(prefecture, city, e.target.value);
-        }}
-        className="col-span-2"
+        value={value.rest}
+        onChange={(e) => set("rest", e.target.value)}
       />
     </div>
   );

@@ -58,6 +58,10 @@ const jobSchema = z.object({
   customerName: z.string().min(1).max(100),
   phone: z.string().max(40).optional().default(""),
   address: z.string().max(300).optional().default(""),
+  addressPostal: z.string().max(10).optional().default(""),
+  addressPrefecture: z.string().max(20).optional().default(""),
+  addressCity: z.string().max(60).optional().default(""),
+  addressRest: z.string().max(200).optional().default(""),
   scheduledDate: z.string().regex(DATE_RE),
   startMinute: z
     .number()
@@ -138,6 +142,16 @@ const PREFECTURES = [
   "鹿児島県",
   "沖縄県",
 ];
+
+function joinAddressParts(a: {
+  postal: string;
+  prefecture: string;
+  city: string;
+  rest: string;
+}): string {
+  const body = `${a.prefecture}${a.city}${a.rest}`.trim();
+  return a.postal ? `〒${a.postal} ${body}`.trim() : body;
+}
 
 function normalizeAddress(value: unknown): {
   postal: string;
@@ -392,7 +406,7 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO jobs (id, org_id, service_id, customer_id, customer_name, phone, address, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO jobs (id, org_id, service_id, customer_id, customer_name, phone, address, address_postal, address_prefecture, address_city, address_rest, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     )
       .bind(
         id,
@@ -401,7 +415,16 @@ export function createApi(auth: Auth) {
         body.customerId ?? null,
         body.customerName,
         body.phone,
-        body.address,
+        joinAddressParts({
+          postal: body.addressPostal,
+          prefecture: body.addressPrefecture,
+          city: body.addressCity,
+          rest: body.addressRest,
+        }),
+        body.addressPostal,
+        body.addressPrefecture,
+        body.addressCity,
+        body.addressRest,
         body.scheduledDate,
         body.startMinute ?? null,
         body.durationMin,
@@ -430,6 +453,10 @@ export function createApi(auth: Auth) {
     if (body.customerName !== undefined) fields.customer_name = body.customerName;
     if (body.phone !== undefined) fields.phone = body.phone;
     if (body.address !== undefined) fields.address = body.address;
+    if (body.addressPostal !== undefined) fields.address_postal = body.addressPostal;
+    if (body.addressPrefecture !== undefined) fields.address_prefecture = body.addressPrefecture;
+    if (body.addressCity !== undefined) fields.address_city = body.addressCity;
+    if (body.addressRest !== undefined) fields.address_rest = body.addressRest;
     if (body.scheduledDate !== undefined) fields.scheduled_date = body.scheduledDate;
     if (body.startMinute !== undefined) fields.start_minute = body.startMinute;
     if (body.durationMin !== undefined) fields.duration_min = body.durationMin;

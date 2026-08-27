@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Customer, Member, Service } from "../types";
+import type { Customer, CustomerAddress, Member, Service } from "../types";
 import { joinAddress } from "../types";
 import { api } from "../api";
 import { todayISO } from "../date";
@@ -40,7 +40,12 @@ export default function NewJobModal({
   const [serviceId, setServiceId] = useState("");
   const [phone, setPhone] = useState("");
   const [staffId, setStaffId] = useState(defaultStaffId ?? "");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState<CustomerAddress>({
+    postal: "",
+    prefecture: "",
+    city: "",
+    rest: "",
+  });
   const [date, setDate] = useState(defaultDate ?? todayISO());
   const [startMinute, setStartMinute] = useState(defaultStartMinute ?? 600);
   const [durationMin, setDurationMin] = useState(60);
@@ -53,7 +58,7 @@ export default function NewJobModal({
     if (c) {
       setCustomerName(c.name);
       if (c.phones.length > 0) setPhone(c.phones[0]!);
-      if (c.addresses.length > 0) setAddress(joinAddress(c.addresses[0]!));
+      if (c.addresses.length > 0) setAddress({ ...c.addresses[0] });
     } else {
       setCustomerId("");
     }
@@ -69,7 +74,10 @@ export default function NewJobModal({
           customerId: customerId || null,
           customerName,
           phone,
-          address,
+          addressPostal: address.postal,
+          addressPrefecture: address.prefecture,
+          addressCity: address.city,
+          addressRest: address.rest,
           serviceId: serviceId || null,
           scheduledDate: date,
           startMinute,
@@ -209,7 +217,14 @@ export default function NewJobModal({
                 />
               )}
               {customerId && customers.find((c) => c.id === customerId)?.addresses.length ? (
-                <Select value={address} onValueChange={setAddress}>
+                <Select
+                  value={joinAddress(address)}
+                  onValueChange={(joined) => {
+                    const c = customers.find((x) => x.id === customerId);
+                    const a = c?.addresses.find((x) => joinAddress(x) === joined);
+                    if (a) setAddress({ ...a });
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -227,7 +242,7 @@ export default function NewJobModal({
                   </SelectContent>
                 </Select>
               ) : (
-                <AddressFields value={address} onChange={setAddress} compact />
+                <AddressFields value={address} onChange={setAddress} />
               )}
             </div>
           </div>

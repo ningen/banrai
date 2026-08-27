@@ -5,6 +5,7 @@ import businessSchemaSql from "../../migrations/0001_services_jobs.sql?raw";
 import servicesColorSql from "../../migrations/0002_services_color.sql?raw";
 import customersSql from "../../migrations/0003_customers_and_billing.sql?raw";
 import statusesSql from "../../migrations/0004_statuses_and_contacts.sql?raw";
+import jobsAddressSql from "../../migrations/0005_jobs_address.sql?raw";
 
 const BASE = "https://example.com";
 
@@ -23,6 +24,7 @@ beforeAll(async () => {
     servicesColorSql,
     customersSql,
     statusesSql,
+    jobsAddressSql,
   ]) {
     for (const statement of splitStatements(sql)) {
       await env.DB.prepare(statement)
@@ -183,7 +185,14 @@ describe("banrai worker", () => {
 
     res = await patch(
       `/api/jobs/${jobId}`,
-      { status: "見積待ち", phone: "090-1111-2222", address: "住所A" },
+      {
+        status: "見積待ち",
+        phone: "090-1111-2222",
+        addressPostal: "100-0001",
+        addressPrefecture: "東京都",
+        addressCity: "千代田区",
+        addressRest: "丸の内1-1",
+      },
       ownerCookie,
     );
     expect(res.status).toBe(200);

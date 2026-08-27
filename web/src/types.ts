@@ -53,6 +53,10 @@ export type Job = {
   customer_name: string;
   phone: string;
   address: string;
+  address_postal: string;
+  address_prefecture: string;
+  address_city: string;
+  address_rest: string;
   scheduled_date: string;
   start_minute: number | null;
   duration_min: number;

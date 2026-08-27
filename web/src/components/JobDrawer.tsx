@@ -137,8 +137,20 @@ export default function JobDrawer({ job, services, members, statuses, onClose, o
                 onChange={(e) => patch({ phone: e.target.value })}
               />
               <AddressFields
-                value={job.address}
-                onChange={(joined) => void patch({ address: joined })}
+                value={{
+                  postal: job.address_postal,
+                  prefecture: job.address_prefecture,
+                  city: job.address_city,
+                  rest: job.address_rest,
+                }}
+                onChange={(next) =>
+                  void patch({
+                    addressPostal: next.postal,
+                    addressPrefecture: next.prefecture,
+                    addressCity: next.city,
+                    addressRest: next.rest,
+                  })
+                }
               />
             </div>
           </div>
