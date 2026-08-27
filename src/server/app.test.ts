@@ -4,6 +4,7 @@ import authSchemaSql from "../../migrations/0000_auth_schema.sql?raw";
 import businessSchemaSql from "../../migrations/0001_services_jobs.sql?raw";
 import servicesColorSql from "../../migrations/0002_services_color.sql?raw";
 import customersSql from "../../migrations/0003_customers_and_billing.sql?raw";
+import statusesSql from "../../migrations/0004_statuses_and_contacts.sql?raw";
 
 const BASE = "https://example.com";
 
@@ -16,7 +17,7 @@ function splitStatements(sql: string): string[] {
 }
 
 beforeAll(async () => {
-  for (const sql of [authSchemaSql, businessSchemaSql, servicesColorSql, customersSql]) {
+  for (const sql of [authSchemaSql, businessSchemaSql, servicesColorSql, customersSql, statusesSql]) {
     for (const statement of splitStatements(sql)) {
       await env.DB.prepare(statement)
         .run()
@@ -38,6 +39,16 @@ async function post(path: string, body: unknown, cookie?: string): Promise<Respo
   if (cookie) headers.cookie = cookie;
   return exports.default.fetch(new URL(path, BASE), {
     method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+}
+
+async function patch(path: string, body: unknown, cookie?: string): Promise<Response> {
+  const headers: Record<string, string> = { "content-type": "application/json", Origin: BASE };
+  if (cookie) headers.cookie = cookie;
+  return exports.default.fetch(new URL(path, BASE), {
+    method: "PATCH",
     headers,
     body: JSON.stringify(body),
   });
@@ -124,7 +135,31 @@ describe("banrai worker", () => {
     expect(res.status).toBe(200);
     const serviceId = ((await res.json()) as { id: string }).id;
 
-    // job
+    // default statuses are seeded + custom status can be created
+    res = await get("/api/statuses", ownerCookie);
+    expect(res.status).toBe(200);
+    const statuses = ((await res.json()) as { statuses: { name: string }[] }).statuses;
+    expect(statuses.map((s) => s.name)).toEqual(
+      expect.arrayContaining(["下書き", "割当日", "完了", "キャンセル"]),
+    );
+
+    res = await post("/api/statuses", { name: "見積待ち", color: "#2F6B45", done: false }, ownerCookie);
+    expect(res.status).toBe(200);
+
+    // customer with multiple contacts
+    res = await post(
+      "/api/customers",
+      {
+        name: "山田 太郎",
+        phones: ["090-1111-2222", "090-3333-4444"],
+        emails: ["y@example.com", "y2@example.com"],
+        addresses: ["住所A", "住所B"],
+      },
+      ownerCookie,
+    );
+    expect(res.status).toBe(200);
+
+    // job (status defaults to 下書き; custom status can be applied)
     res = await post(
       "/api/jobs",
       { customerName: "山田 太郎", serviceId, scheduledDate: "2026-08-27" },
@@ -132,6 +167,26 @@ describe("banrai worker", () => {
     );
     expect(res.status).toBe(200);
     const jobId = ((await res.json()) as { id: string }).id;
+
+    res = await patch(
+      `/api/jobs/${jobId}`,
+      { status: "見積待ち", phone: "090-1111-2222", address: "住所A" },
+      ownerCookie,
+    );
+    expect(res.status).toBe(200);
+
+    res = await get("/api/jobs?from=2026-08-01&to=2026-08-31", ownerCookie);
+    expect(res.status).toBe(200);
+    const jobsAfter = ((await res.json()) as {
+      jobs: { id: string; status: string; status_color: string }[];
+    }).jobs;
+    const mine = jobsAfter.find((j) => j.id === jobId)!;
+    expect(mine.status).toBe("見積待ち");
+    expect(mine.status_color).toBe("#2F6B45");
+
+    // unknown status is rejected
+    res = await patch(`/api/jobs/${jobId}`, { status: "存在しない" }, ownerCookie);
+    expect(res.status).toBe(400);
 
     // staff signup + invite + accept
     res = await post(
@@ -214,6 +269,6 @@ describe("banrai worker", () => {
     ).jobs;
     expect(jobs).toHaveLength(1);
     expect(jobs[0]!.id).toBe(jobId);
-    expect(jobs[0]!.status).toBe("assigned");
+    expect(jobs[0]!.status).toBe("割当日");
   });
 });

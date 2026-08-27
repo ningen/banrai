@@ -26,12 +26,20 @@ const serviceSchema = z.object({
     .default([]),
 });
 
+const STRING_LIST = z.array(z.string().min(1).max(200)).max(20).default([]);
+
 const customerSchema = z.object({
   name: z.string().min(1).max(100),
-  phone: z.string().max(40).optional().default(""),
-  email: z.string().max(120).optional().default(""),
-  address: z.string().max(300).optional().default(""),
+  phones: STRING_LIST,
+  emails: STRING_LIST,
+  addresses: STRING_LIST,
   notes: z.string().max(1000).optional().default(""),
+});
+
+const statusSchema = z.object({
+  name: z.string().min(1).max(30),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
+  done: z.boolean().optional().default(false),
 });
 
 const jobSchema = z.object({
@@ -50,7 +58,7 @@ const jobSchema = z.object({
     .nullable(),
   durationMin: z.number().int().min(15).max(720).optional().default(60),
   notes: z.string().max(1000).optional().default(""),
-  status: z.enum(["draft", "assigned", "done", "cancelled"]).optional(),
+  status: z.string().min(1).max(30).optional(),
 });
 
 const assignSchema = z.object({
@@ -63,6 +71,7 @@ type Guarded = {
   orgId: string;
 };
 import { ensureDemo, DEMO_LOGIN } from "./demo";
+import { ensureDefaultStatuses, listStatuses } from "./statuses";
 
 async function parseBody<T>(c: Ctx, schema: z.ZodType<T>): Promise<T | Response> {
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
@@ -225,19 +234,29 @@ export function createApi(auth: Auth) {
     const from = c.req.query("from") ?? "";
     const to = c.req.query("to") ?? "";
     const memberId = c.req.query("memberId");
+    const q = c.req.query("q")?.trim() ?? "";
+
+    await ensureDefaultStatuses(c.env, g.orgId);
 
     let sql =
-      "SELECT j.*, s.name AS service_name, s.color AS service_color FROM jobs j LEFT JOIN services s ON s.id = j.service_id WHERE j.org_id = ?";
+      "SELECT j.*, s.name AS service_name, s.color AS service_color, js.color AS status_color, js.done AS status_done FROM jobs j LEFT JOIN services s ON s.id = j.service_id LEFT JOIN job_statuses js ON js.org_id = j.org_id AND js.name = j.status WHERE j.org_id = ?";
     const binds: string[] = [g.orgId];
-    if (from) {
-      sql += " AND j.scheduled_date >= ?";
-      binds.push(from);
+    if (q) {
+      sql += " AND (j.customer_name LIKE ? OR j.address LIKE ? OR j.phone LIKE ? OR j.notes LIKE ?)";
+      const like = `%${q}%`;
+      binds.push(like, like, like, like);
+      sql += " ORDER BY j.scheduled_date DESC, j.start_minute LIMIT 200";
+    } else {
+      if (from) {
+        sql += " AND j.scheduled_date >= ?";
+        binds.push(from);
+      }
+      if (to) {
+        sql += " AND j.scheduled_date <= ?";
+        binds.push(to);
+      }
+      sql += " ORDER BY j.scheduled_date, j.start_minute";
     }
-    if (to) {
-      sql += " AND j.scheduled_date <= ?";
-      binds.push(to);
-    }
-    sql += " ORDER BY j.scheduled_date, j.start_minute";
 
     const rows = (await c.env.DB.prepare(sql)
       .bind(...binds)
@@ -328,7 +347,15 @@ export function createApi(auth: Auth) {
     if (body.startMinute !== undefined) fields.start_minute = body.startMinute;
     if (body.durationMin !== undefined) fields.duration_min = body.durationMin;
     if (body.notes !== undefined) fields.notes = body.notes;
-    if (body.status !== undefined) fields.status = body.status;
+    if (body.status !== undefined) {
+      const st = await c.env.DB.prepare(
+        "SELECT id FROM job_statuses WHERE org_id = ? AND name = ?",
+      )
+        .bind(g.orgId, body.status)
+        .first();
+      if (!st) return c.json({ error: "unknown_status" }, 400);
+      fields.status = body.status;
+    }
 
     const keys = Object.keys(fields);
     if (keys.length) {
@@ -381,7 +408,7 @@ export function createApi(auth: Auth) {
     )
       .bind(crypto.randomUUID(), g.orgId, id, body.memberId, Date.now())
       .run();
-    await c.env.DB.prepare("UPDATE jobs SET status = 'assigned', updated_at = ? WHERE id = ?")
+    await c.env.DB.prepare("UPDATE jobs SET status = '割当日', updated_at = ? WHERE id = ?")
       .bind(Date.now(), id)
       .run();
     return c.json({ ok: true });
@@ -437,10 +464,26 @@ export function createApi(auth: Auth) {
     const g = await guard(c);
     if (g instanceof Response) return g;
     if (!(await can(c, { customer: ["read"] }))) return c.json({ error: "forbidden" }, 403);
-    const rows = (await c.env.DB.prepare("SELECT * FROM customers WHERE org_id = ? ORDER BY name")
-      .bind(g.orgId)
+    const q = c.req.query("q")?.trim() ?? "";
+    let sql = "SELECT * FROM customers WHERE org_id = ?";
+    const binds: string[] = [g.orgId];
+    if (q) {
+      sql += " AND (name LIKE ? OR phones LIKE ? OR emails LIKE ? OR addresses LIKE ? OR notes LIKE ?)";
+      const like = `%${q}%`;
+      binds.push(like, like, like, like, like);
+    }
+    sql += " ORDER BY name";
+    const rows = (await c.env.DB.prepare(sql)
+      .bind(...binds)
       .all()) as any;
-    return c.json({ customers: rows.results });
+    return c.json({
+      customers: rows.results.map((r: any) => ({
+        ...r,
+        phones: JSON.parse(r.phones || "[]"),
+        emails: JSON.parse(r.emails || "[]"),
+        addresses: JSON.parse(r.addresses || "[]"),
+      })),
+    });
   });
 
   api.post("/customers", async (c) => {
@@ -452,9 +495,19 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO customers (id, org_id, name, phone, email, address, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO customers (id, org_id, name, phones, emails, addresses, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
     )
-      .bind(id, g.orgId, body.name, body.phone, body.email, body.address, body.notes, now, now)
+      .bind(
+        id,
+        g.orgId,
+        body.name,
+        JSON.stringify(body.phones),
+        JSON.stringify(body.emails),
+        JSON.stringify(body.addresses),
+        body.notes,
+        now,
+        now,
+      )
       .run();
     return c.json({ id });
   });
@@ -466,14 +519,19 @@ export function createApi(auth: Auth) {
     const body = await parseBody(c, customerSchema.partial());
     if (body instanceof Response) return body;
     const { id } = c.req.param();
-    const fields: Record<string, unknown> = { ...body };
+    const fields: Record<string, unknown> = {};
+    if (body.name !== undefined) fields.name = body.name;
+    if (body.notes !== undefined) fields.notes = body.notes;
+    if (body.phones !== undefined) fields.phones = JSON.stringify(body.phones);
+    if (body.emails !== undefined) fields.emails = JSON.stringify(body.emails);
+    if (body.addresses !== undefined) fields.addresses = JSON.stringify(body.addresses);
     const keys = Object.keys(fields);
     if (keys.length) {
       const setSql = keys.map((k) => `${k} = ?`).join(", ");
       await c.env.DB.prepare(
         `UPDATE customers SET ${setSql}, updated_at = ? WHERE id = ? AND org_id = ?`,
       )
-        .bind(...keys.map((k) => fields[k] as string | number | null), Date.now(), id, g.orgId)
+        .bind(...keys.map((k) => fields[k] as string | number), Date.now(), id, g.orgId)
         .run();
     }
     return c.json({ ok: true });
@@ -491,6 +549,65 @@ export function createApi(auth: Auth) {
       .run();
     await c.env.DB.prepare("DELETE FROM customers WHERE id = ? AND org_id = ?")
       .bind(id, g.orgId)
+      .run();
+    return c.json({ ok: true });
+  });
+
+  api.get("/statuses", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { status: ["read"] }))) return c.json({ error: "forbidden" }, 403);
+    await ensureDefaultStatuses(c.env, g.orgId);
+    const statuses = await listStatuses(c.env, g.orgId);
+    return c.json({ statuses });
+  });
+
+  api.post("/statuses", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { status: ["create"] }))) return c.json({ error: "forbidden" }, 403);
+    const body = await parseBody(c, statusSchema);
+    if (body instanceof Response) return body;
+    const exists = await c.env.DB.prepare(
+      "SELECT id FROM job_statuses WHERE org_id = ? AND name = ?",
+    )
+      .bind(g.orgId, body.name)
+      .first();
+    if (exists) return c.json({ error: "duplicate_status" }, 409);
+    const maxOrder = (await c.env.DB.prepare(
+      "SELECT COALESCE(MAX(sort_order), 0) + 1 AS o FROM job_statuses WHERE org_id = ?",
+    )
+      .bind(g.orgId)
+      .first()) as { o: number };
+    await c.env.DB.prepare(
+      "INSERT INTO job_statuses (id, org_id, name, color, done, sort_order, created_at) VALUES (?,?,?,?,?,?,?)",
+    )
+      .bind(
+        crypto.randomUUID(),
+        g.orgId,
+        body.name,
+        body.color,
+        body.done ? 1 : 0,
+        maxOrder.o,
+        Date.now(),
+      )
+      .run();
+    return c.json({ ok: true });
+  });
+
+  api.delete("/statuses/:name", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { status: ["delete"] }))) return c.json({ error: "forbidden" }, 403);
+    const { name } = c.req.param();
+    const usage = (await c.env.DB.prepare(
+      "SELECT COUNT(*) AS c FROM jobs WHERE org_id = ? AND status = ? AND status != 'キャンセル'",
+    )
+      .bind(g.orgId, name)
+      .first()) as { c: number };
+    if (usage.c > 0) return c.json({ error: "status_in_use" }, 409);
+    await c.env.DB.prepare("DELETE FROM job_statuses WHERE org_id = ? AND name = ?")
+      .bind(g.orgId, name)
       .run();
     return c.json({ ok: true });
   });

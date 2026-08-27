@@ -1,4 +1,5 @@
 import type { Auth } from "./auth";
+import { ensureDefaultStatuses } from "./statuses";
 
 const DEMO_EMAIL = "demo@banrai.test";
 const DEMO_PASSWORD = "Demopass123!";
@@ -36,10 +37,10 @@ const SERVICES: [string, string, number, number, { name: string; price: number }
   ["レンジフード", "#8A6BE0", 60, 8800, [{ name: "配管クリーニング", price: 4400 }]],
 ];
 
-const CUSTOMERS: [string, string, string, string][] = [
-  ["丸山マンション 303", "090-1234-5678", "maruyama@example.com", "東京都渋谷区丸山1-2-3"],
-  ["佐藤様 戸建", "080-9876-5432", "sato@example.com", "東京都世田谷区宇田川2-3-4"],
-  ["青木荘 203", "070-1111-2222", "", "神奈川県横浜市青木5-6"],
+const CUSTOMERS: { name: string; phones: string[]; emails: string[]; addresses: string[] }[] = [
+  { name: "丸山マンション 303", phones: ["090-1234-5678", "03-1234-5678"], emails: ["maruyama@example.com"], addresses: ["東京都渋谷区丸山1-2-3"] },
+  { name: "佐藤様 戸建", phones: ["080-9876-5432"], emails: ["sato@example.com"], addresses: ["東京都世田谷区宇田川2-3-4"] },
+  { name: "青木荘 203", phones: ["070-1111-2222"], emails: [], addresses: ["神奈川県横浜市青木5-6"] },
 ];
 
 function todayISO(): string {
@@ -103,6 +104,8 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
       .first()) as { id: string } | null;
   }
   const orgId = org!.id;
+
+  await ensureDefaultStatuses(env, orgId);
 
   // 3. members (SQL; org create already added owner)
   for (const u of DEMO_USERS) {
@@ -194,11 +197,21 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
     .first()) as { c: number };
   if (!customerCount.c) {
     const now = Date.now();
-    for (const [name, phone, email, address] of CUSTOMERS) {
+    for (const cs of CUSTOMERS) {
       await env.DB.prepare(
-        "INSERT INTO customers (id, org_id, name, phone, email, address, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO customers (id, org_id, name, phones, emails, addresses, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
       )
-        .bind(crypto.randomUUID(), orgId, name, phone, email, address, "", now, now)
+        .bind(
+          crypto.randomUUID(),
+          orgId,
+          cs.name,
+          JSON.stringify(cs.phones),
+          JSON.stringify(cs.emails),
+          JSON.stringify(cs.addresses),
+          "",
+          now,
+          now,
+        )
         .run();
     }
   }
@@ -239,7 +252,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         date: today,
         start: 540,
         dur: 90,
-        status: "assigned",
+        status: "割当日",
         notes: "室外機は2階",
         staff: yamadaId,
       },
@@ -249,7 +262,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         date: today,
         start: 600,
         dur: 180,
-        status: "assigned",
+        status: "割当日",
         notes: "2名対応",
         staff: satoId,
       },
@@ -259,7 +272,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         date: today,
         start: 780,
         dur: 60,
-        status: "assigned",
+        status: "割当日",
         notes: "",
         staff: tanakaId,
       },
@@ -269,7 +282,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         date: today,
         start: 660,
         dur: 60,
-        status: "draft",
+        status: "下書き",
         notes: "時間要相談",
         staff: undefined,
       },
@@ -279,7 +292,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         date: tomorrow,
         start: 600,
         dur: 60,
-        status: "assigned",
+        status: "割当日",
         notes: "",
         staff: yamadaId,
       },
@@ -289,7 +302,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         date: tomorrow,
         start: 840,
         dur: 120,
-        status: "draft",
+        status: "下書き",
         notes: "電話予約あり",
         staff: undefined,
       },

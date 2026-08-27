@@ -10,6 +10,7 @@ export const statement = {
   ...defaultStatements,
   service: ["create", "read", "update", "delete"],
   customer: ["create", "read", "update", "delete"],
+  status: ["create", "read", "update", "delete"],
   job: ["create", "read", "update", "delete", "assign"],
   assignment: ["create", "read", "update", "delete"],
 } as const;
@@ -24,6 +25,7 @@ const full = () => ({
   ac: ownerAc.statements.ac,
   service: ["create", "read", "update", "delete"] as const,
   customer: ["create", "read", "update", "delete"] as const,
+  status: ["create", "read", "update", "delete"] as const,
   job: ["create", "read", "update", "delete", "assign"] as const,
   assignment: ["create", "read", "update", "delete"] as const,
 });
@@ -34,6 +36,7 @@ export const admin = ac.newRole({
   ...adminAc.statements,
   service: ["create", "read", "update", "delete"],
   customer: ["create", "read", "update", "delete"],
+  status: ["create", "read", "update", "delete"],
   job: ["create", "read", "update", "delete", "assign"],
   assignment: ["create", "read", "update", "delete"],
 });
@@ -42,6 +45,7 @@ export const member = ac.newRole({
   ...memberAc.statements,
   service: ["read"],
   customer: ["read"],
+  status: ["read"],
   job: ["read"],
   assignment: ["read"],
 });
