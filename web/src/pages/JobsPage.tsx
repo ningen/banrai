@@ -346,7 +346,7 @@ export default function JobsPage() {
             display: "flex",
             gap: 10,
             overflowX: "auto",
-            alignItems: "flex-start",
+            alignItems: "stretch",
           }}
         >
           {statuses.map((s) => (
