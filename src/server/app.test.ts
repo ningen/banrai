@@ -2,6 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it } from "vitest";
 import authSchemaSql from "../../migrations/0000_auth_schema.sql?raw";
 import businessSchemaSql from "../../migrations/0001_services_jobs.sql?raw";
+import servicesColorSql from "../../migrations/0002_services_color.sql?raw";
 
 const BASE = "https://example.com";
 
@@ -14,7 +15,7 @@ function splitStatements(sql: string): string[] {
 }
 
 beforeAll(async () => {
-  for (const sql of [authSchemaSql, businessSchemaSql]) {
+  for (const sql of [authSchemaSql, businessSchemaSql, servicesColorSql]) {
     for (const statement of splitStatements(sql)) {
       await env.DB.prepare(statement)
         .run()

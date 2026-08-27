@@ -1,40 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { authClient, useSession } from "./lib/auth-client";
-import { api } from "./api";
+import CalendarPage from "./pages/CalendarPage";
+import JobsPage from "./pages/JobsPage";
+import StaffPage from "./pages/StaffPage";
+import ServicesPage from "./pages/ServicesPage";
+import RolesPage from "./pages/RolesPage";
 
-type Service = { id: string; name: string; description: string; duration_min: number };
-type Job = {
-  id: string;
-  service_id: string | null;
-  service_name: string | null;
-  customer_name: string;
-  address: string;
-  scheduled_date: string;
-  start_minute: number | null;
-  duration_min: number;
-  status: string;
-  notes: string;
-  assignments: { member_id: string }[];
-};
-type Member = { id: string; user: { id: string; name: string; email: string }; role: string };
+type Tab = "cal" | "jobs" | "staff" | "services" | "roles";
 
-function fmtMin(min: number | null) {
-  if (min == null) return "–";
-  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-}
-
-export default function App() {
-  const { data: session, isPending } = useSession();
-
-  if (isPending)
-    return (
-      <div className="card" style={{ margin: 24 }}>
-        loading…
-      </div>
-    );
-  if (!session) return <AuthScreen />;
-  return <Dashboard />;
-}
+const NAV: { key: Tab; ico: string; label: string }[] = [
+  { key: "cal", ico: "▦", label: "週間カレンダー" },
+  { key: "jobs", ico: "☰", label: "作業一覧" },
+  { key: "staff", ico: "◌", label: "スタッフ" },
+  { key: "services", ico: "✦", label: "サービス" },
+  { key: "roles", ico: "◎", label: "ロール" },
+];
 
 function Labelled(props: { label: string; children: React.ReactNode }) {
   return (
@@ -43,6 +23,16 @@ function Labelled(props: { label: string; children: React.ReactNode }) {
       {props.children}
     </label>
   );
+}
+
+export default function App() {
+  const { data: session, isPending } = useSession();
+
+  if (isPending) return null;
+  if (!session) return <AuthScreen />;
+  const orgId = (session.session as { activeOrganizationId?: string | null }).activeOrganizationId;
+  if (!orgId) return <OrgSelect />;
+  return <Shell userEmail={session.user.email} />;
 }
 
 function AuthScreen() {
@@ -58,13 +48,11 @@ function AuthScreen() {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "signup") {
-        const r = await authClient.signUp.email({ email, password, name });
-        if (r.error) throw new Error(r.error.message || r.error.statusText);
-      } else {
-        const r = await authClient.signIn.email({ email, password });
-        if (r.error) throw new Error(r.error.message || r.error.statusText);
-      }
+      const r =
+        mode === "signup"
+          ? await authClient.signUp.email({ email, password, name })
+          : await authClient.signIn.email({ email, password });
+      if (r.error) throw new Error(r.error.message || r.error.statusText);
     } catch (err) {
       setError(String((err as Error).message));
     } finally {
@@ -73,16 +61,23 @@ function AuthScreen() {
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 4 }}>banrai</h1>
-      <p className="muted">清掃事業者向け 作業管理プラットフォーム</p>
-      <form className="card" onSubmit={submit}>
-        <div style={{ marginBottom: 10 }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background: "var(--paper)",
+      }}
+    >
+      <form className="card" onSubmit={submit} style={{ width: 360, padding: 26 }}>
+        <div className="brand" style={{ padding: "0 0 14px" }}>
+          banrai <small>清掃事業者向け 作業管理</small>
+        </div>
+        <div style={{ marginBottom: 14, display: "flex", gap: 6 }}>
           <button
             type="button"
             className={mode === "signin" ? "primary" : ""}
             onClick={() => setMode("signin")}
-            style={{ marginRight: 6 }}
           >
             ログイン
           </button>
@@ -94,7 +89,7 @@ function AuthScreen() {
             新規登録
           </button>
         </div>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 12 }}>
           <Labelled label="メールアドレス">
             <input
               type="email"
@@ -106,7 +101,7 @@ function AuthScreen() {
           </Labelled>
         </div>
         {mode === "signup" && (
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 12 }}>
             <Labelled label="名前">
               <input
                 value={name}
@@ -117,7 +112,7 @@ function AuthScreen() {
             </Labelled>
           </div>
         )}
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 16 }}>
           <Labelled label="パスワード (8文字以上)">
             <input
               type="password"
@@ -134,61 +129,6 @@ function AuthScreen() {
           {busy ? "…" : mode === "signin" ? "ログイン" : "登録する"}
         </button>
       </form>
-    </div>
-  );
-}
-
-function Dashboard() {
-  const { data: session, refetch: refetchSession } = useSession();
-  const orgId = (session?.session as any)?.activeOrganizationId;
-  const [tab, setTab] = useState<"main" | "services" | "staff" | "jobs" | "roles">("main");
-
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>banrai</h1>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className="muted">{session?.user.email}</span>
-          <button onClick={() => authClient.signOut()}>サインアウト</button>
-        </div>
-      </header>
-      {!orgId ? (
-        <OrgSelect />
-      ) : (
-        <>
-          <nav style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-            {(
-              [
-                ["main", "ホーム"],
-                ["services", "サービス"],
-                ["staff", "スタッフ"],
-                ["jobs", "作業"],
-                ["roles", "ロール"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                className={tab === key ? "primary" : ""}
-                onClick={() => setTab(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          {tab === "main" && <Overview onRefetch={refetchSession} />}
-          {tab === "services" && <Services />}
-          {tab === "staff" && <Staff />}
-          {tab === "jobs" && <Jobs />}
-          {tab === "roles" && <Roles />}
-        </>
-      )}
     </div>
   );
 }
@@ -234,12 +174,13 @@ function OrgSelect() {
   };
 
   return (
-    <div style={{ maxWidth: 480, margin: "40px auto" }}>
+    <div style={{ maxWidth: 460, margin: "60px auto", padding: "0 16px" }}>
       {pending && (
         <div className="card">
           <button className="primary" onClick={accept} disabled={busy}>
             招待を承諾する
           </button>
+          {error && <p className="error">{error}</p>}
         </div>
       )}
       <div className="card">
@@ -254,13 +195,13 @@ function OrgSelect() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              padding: "8px 0",
+              padding: "10px 0",
               borderBottom: "1px solid var(--line)",
             }}
           >
             <div>
-              <div>{org.name}</div>
-              <div className="muted">{org.slug}</div>
+              <div style={{ fontWeight: 600 }}>{org.name}</div>
+              <div className="muted num">{org.slug}</div>
             </div>
             <button onClick={() => authClient.organization.setActive({ organizationId: org.id })}>
               選択
@@ -270,7 +211,7 @@ function OrgSelect() {
       </div>
       <form className="card" onSubmit={create}>
         <h3 style={{ marginTop: 0 }}>事業者を新規作成</h3>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 12 }}>
           <Labelled label="会社名">
             <input
               value={name}
@@ -280,8 +221,8 @@ function OrgSelect() {
             />
           </Labelled>
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <Labelled label="slug (URL/識別子)">
+        <div style={{ marginBottom: 12 }}>
+          <Labelled label="slug (識別子)">
             <input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
@@ -300,426 +241,46 @@ function OrgSelect() {
   );
 }
 
-function Overview({ onRefetch }: { onRefetch: () => void }) {
+function Shell({ userEmail }: { userEmail: string }) {
   const { data: activeOrg } = authClient.useActiveOrganization();
-  const [member, setMember] = useState<{ role: string } | null>(null);
-  useEffect(() => {
-    authClient.organization.getActiveMember().then((r) => {
-      if (!r.error) setMember(r.data as any);
-    });
-  }, []);
-  return (
-    <div className="card">
-      <h3 style={{ marginTop: 0 }}>{activeOrg?.name}</h3>
-      <p>
-        あなたのロール: <strong>{member?.role}</strong>
-      </p>
-      <p className="muted">
-        事業者ごとにスタッフ (role) を招待し、作業を割り当てて曜日・月別のカレンダーで確認できます。
-      </p>
-      <button className="primary" onClick={onRefetch}>
-        セッションを再取得
-      </button>
-    </div>
-  );
-}
-
-function Services() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [name, setName] = useState("");
-  const [duration, setDuration] = useState(60);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(
-    () =>
-      api<{ services: Service[] }>("/api/services")
-        .then((r) => setServices(r.services))
-        .catch((e) => setError(e.message)),
-    [],
-  );
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      await api("/api/services", {
-        method: "POST",
-        body: JSON.stringify({ name, durationMin: Number(duration) }),
-      });
-      setName("");
-      await load();
-    } catch (err) {
-      setError(String((err as Error).message));
-    }
-  };
-
-  const remove = async (id: string) => {
-    await api(`/api/services/${id}`, { method: "DELETE" });
-    await load();
-  };
+  const [tab, setTab] = useState<Tab>("cal");
 
   return (
-    <div>
-      <form
-        className="card"
-        onSubmit={create}
-        style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
-      >
-        <div>
-          <Labelled label="提供する作業名 (ex: エアコンクリーニング)">
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </Labelled>
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          banrai <small>作業管理</small>
         </div>
-        <div>
-          <Labelled label="標準所要時間 (分)">
-            <input
-              type="number"
-              min={15}
-              step={15}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-            />
-          </Labelled>
-        </div>
-        <button className="primary">追加</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>名前</th>
-            <th>所要時間</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {services.map((s) => (
-            <tr key={s.id}>
-              <td>{s.name}</td>
-              <td>{s.duration_min}分</td>
-              <td>
-                <button className="danger" onClick={() => remove(s.id)}>
-                  削除
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Staff() {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [role, setRole] = useState("member");
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const r = await authClient.organization.listMembers();
-    if (r.error) setError(String((r.error as any)?.message));
-    else setMembers((r.data as any)?.members ?? []);
-  }, []);
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const invite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    const r = await authClient.organization.inviteMember({ email: inviteEmail, role });
-    if (r.error) setError(String((r.error as any)?.message || "invite failed"));
-    else setInviteEmail("");
-  };
-
-  const changeRole = async (memberId: string, newRole: string) => {
-    setError(null);
-    const r = await authClient.organization.updateMemberRole({ memberId, role: newRole });
-    if (r.error) setError(String((r.error as any)?.message));
-    await load();
-  };
-
-  return (
-    <div>
-      <form
-        className="card"
-        onSubmit={invite}
-        style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
-      >
-        <div>
-          <Labelled label="スタッフのメールアドレス">
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              required
-            />
-          </Labelled>
-        </div>
-        <div>
-          <Labelled label="ロール">
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="member">member</option>
-              <option value="admin">admin</option>
-            </select>
-          </Labelled>
-        </div>
-        <button className="primary">招待を送る</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>名前</th>
-            <th>メール</th>
-            <th>ロール</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((m) => (
-            <tr key={m.id}>
-              <td>{m.user?.name}</td>
-              <td>{m.user?.email}</td>
-              <td>{m.role}</td>
-              <td>
-                <input value={m.role} onChange={(e) => changeRole(m.id, e.target.value)} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Jobs() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [customerName, setCustomerName] = useState("");
-  const [serviceId, setServiceId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const weekStart = new Date(
-      new Date(date + "T00:00:00").getTime() - new Date(date + "T00:00:00").getDay() * 86400000,
-    )
-      .toISOString()
-      .slice(0, 10);
-    const weekEnd = new Date(new Date(weekStart + "T00:00:00").getTime() + 6 * 86400000)
-      .toISOString()
-      .slice(0, 10);
-    try {
-      const [svc, mem] = await Promise.all([
-        api<{ services: Service[] }>("/api/services"),
-        authClient.organization.listMembers(),
-      ]);
-      setServices(svc.services);
-      setMembers((mem.data as any)?.members ?? ([] as Member[]));
-      const jobsRes = await fetch(`/api/jobs?from=${weekStart}&to=${weekEnd}`);
-      const body = await jobsRes.json();
-      setJobs(body.jobs ?? []);
-    } catch (err) {
-      setError(String((err as Error).message));
-    }
-  }, [date]);
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      await api("/api/jobs", {
-        method: "POST",
-        body: JSON.stringify({ serviceId: serviceId || null, customerName, scheduledDate: date }),
-      });
-      setCustomerName("");
-      await load();
-    } catch (err) {
-      setError(String((err as Error).message));
-    }
-  };
-
-  const assign = async (jobId: string, memberId: string) => {
-    if (!memberId) return;
-    await api(`/api/jobs/${jobId}/assign`, { method: "POST", body: JSON.stringify({ memberId }) });
-    await load();
-  };
-
-  const byDate = useMemo(() => {
-    const map = new Map<string, Job[]>();
-    for (const j of jobs) {
-      const list = map.get(j.scheduled_date) ?? [];
-      list.push(j);
-      map.set(j.scheduled_date, list);
-    }
-    return map;
-  }, [jobs]);
-
-  return (
-    <div>
-      <form
-        className="card"
-        onSubmit={create}
-        style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
-      >
-        <div>
-          <Labelled label="顧客名">
-            <input
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required
-            />
-          </Labelled>
-        </div>
-        <div>
-          <Labelled label="作業日">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </Labelled>
-        </div>
-        <div>
-          <Labelled label="提供サービス">
-            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-              <option value="">(なし)</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </Labelled>
-        </div>
-        <button className="primary">作業を追加</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      {[...byDate.entries()].toSorted().map(([d, list]) => (
-        <div key={d} className="card">
-          <h4 style={{ marginTop: 0 }}>{d}</h4>
-          {list.map((j) => (
-            <div
-              key={j.id}
-              style={{
-                borderBottom: "1px solid var(--line)",
-                padding: "6px 0",
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <span>{fmtMin(j.start_minute)}</span>
-              <strong>{j.customer_name}</strong>
-              <span className="muted">{j.service_name ?? "（サービス未設定）"}</span>
-              <span className="muted">
-                ({j.duration_min}分) {j.status}
-              </span>
-              {j.assignments?.length === 0 && <span className="muted">未割当</span>}
-              {j.assignments?.map((a) => (
-                <span key={a.member_id} className="muted">
-                  → {members.find((m) => m.user?.id === a.member_id)?.user?.name ?? "?"}{" "}
-                </span>
-              ))}
-              <span style={{ marginLeft: "auto" }}>
-                <select defaultValue="" onChange={(e) => assign(j.id, e.target.value)}>
-                  <option value="">staff に割当…</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.user?.id}>
-                      {m.user?.name}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Roles() {
-  const { data: activeOrg } = authClient.useActiveOrganization();
-  const [name, setName] = useState("");
-  const [perms, setPerms] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const PERMS: Record<string, string[]> = {
-    service: ["create", "read", "update", "delete"],
-    job: ["create", "read", "update", "delete", "assign"],
-    assignment: ["create", "read", "update", "delete"],
-    member: ["create", "update", "delete"],
-    invitation: ["create", "cancel"],
-    organization: ["update", "delete"],
-  };
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    const permission: Record<string, string[]> = {};
-    for (const [resource, actions] of Object.entries(PERMS)) {
-      const chosen = actions.filter((a) => perms.includes(`${resource}:${a}`));
-      if (chosen.length) permission[resource] = chosen;
-    }
-    const r = await authClient.organization.createRole({
-      role: name,
-      permission,
-      organizationId: activeOrg?.id,
-    });
-    if (r.error) setError(String((r.error as any)?.message || "create failed"));
-    else setName("");
-  };
-
-  return (
-    <div className="card">
-      <p className="muted">
-        事業者内でカスタムロールを作成して staff に割り当てられます (Dynamic Access Control)。
-      </p>
-      <form onSubmit={create}>
-        <div style={{ marginBottom: 10 }}>
-          <Labelled label="ロール名">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="ex: リーダー"
-            />
-          </Labelled>
-        </div>
-        {Object.entries(PERMS).map(([resource, actions]) => (
-          <div key={resource} style={{ marginBottom: 6 }}>
-            <strong style={{ fontSize: 13 }}>{resource}</strong>{" "}
-            {actions.map((a) => (
-              <label
-                key={a}
-                style={{ display: "inline-flex", gap: 4, margin: "0 10px 0 0", fontSize: 13 }}
-              >
-                <input
-                  type="checkbox"
-                  checked={perms.includes(`${resource}:${a}`)}
-                  onChange={(e) =>
-                    setPerms((p) =>
-                      e.target.checked
-                        ? [...p, `${resource}:${a}`]
-                        : p.filter((x) => x !== `${resource}:${a}`),
-                    )
-                  }
-                />
-                {a}
-              </label>
-            ))}
-          </div>
+        {NAV.map((n) => (
+          <button
+            key={n.key}
+            className={`nav-item ${tab === n.key ? "active" : ""}`}
+            onClick={() => setTab(n.key)}
+          >
+            <span className="ico">{n.ico}</span>
+            {n.label}
+          </button>
         ))}
-        {error && <p className="error">{error}</p>}
-        <button className="primary">ロールを作成</button>
-      </form>
+        <div className="spacer" />
+        <div className="org-chip">
+          事業者
+          <b>{activeOrg?.name}</b>
+        </div>
+        <div className="user-chip">
+          <span className="avatar">{userEmail.slice(0, 1).toUpperCase()}</span>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{userEmail}</span>
+          <button className="sm" onClick={() => authClient.signOut()}>
+            退出
+          </button>
+        </div>
+      </aside>
+      <main className="main">
+        {tab === "cal" && <CalendarPage />}
+        {tab === "jobs" && <JobsPage />}
+        {tab === "staff" && <StaffPage />}
+        {tab === "services" && <ServicesPage />}
+        {tab === "roles" && <RolesPage />}
+      </main>
     </div>
   );
 }

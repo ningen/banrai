@@ -8,6 +8,11 @@ const serviceSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional().default(""),
   durationMin: z.number().int().min(15).max(720).optional().default(60),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .default(""),
 });
 
 const jobSchema = z.object({
@@ -24,6 +29,7 @@ const jobSchema = z.object({
     .nullable(),
   durationMin: z.number().int().min(15).max(720).optional().default(60),
   notes: z.string().max(1000).optional().default(""),
+  status: z.enum(["draft", "assigned", "done", "cancelled"]).optional(),
 });
 
 const assignSchema = z.object({
@@ -86,9 +92,9 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO services (id, org_id, name, description, duration_min, active, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?)",
+      "INSERT INTO services (id, org_id, name, description, duration_min, color, active, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?)",
     )
-      .bind(id, g.orgId, body.name, body.description, body.durationMin, now, now)
+      .bind(id, g.orgId, body.name, body.description, body.durationMin, body.color, now, now)
       .run();
     return c.json({ id });
   });
@@ -113,6 +119,10 @@ export function createApi(auth: Auth) {
     if (body.durationMin !== undefined)
       await c.env.DB.prepare("UPDATE services SET duration_min = ? WHERE id = ? AND org_id = ?")
         .bind(body.durationMin, id, g.orgId)
+        .run();
+    if (body.color !== undefined)
+      await c.env.DB.prepare("UPDATE services SET color = ? WHERE id = ? AND org_id = ?")
+        .bind(body.color, id, g.orgId)
         .run();
     await c.env.DB.prepare("UPDATE services SET updated_at = ? WHERE id = ? AND org_id = ?")
       .bind(Date.now(), id, g.orgId)
@@ -141,7 +151,7 @@ export function createApi(auth: Auth) {
     const memberId = c.req.query("memberId");
 
     let sql =
-      "SELECT j.*, s.name AS service_name FROM jobs j LEFT JOIN services s ON s.id = j.service_id WHERE j.org_id = ?";
+      "SELECT j.*, s.name AS service_name, s.color AS service_color FROM jobs j LEFT JOIN services s ON s.id = j.service_id WHERE j.org_id = ?";
     const binds: string[] = [g.orgId];
     if (from) {
       sql += " AND j.scheduled_date >= ?";
@@ -238,6 +248,7 @@ export function createApi(auth: Auth) {
     if (body.startMinute !== undefined) fields.start_minute = body.startMinute;
     if (body.durationMin !== undefined) fields.duration_min = body.durationMin;
     if (body.notes !== undefined) fields.notes = body.notes;
+    if (body.status !== undefined) fields.status = body.status;
 
     const keys = Object.keys(fields);
     if (keys.length) {
