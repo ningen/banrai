@@ -19,6 +19,7 @@ const meta = {
   tags: ["autodocs"],
   args: {
     services,
+    members: [],
     defaultDate: "2026-08-27",
     onClose: () => {},
     onCreated: () => {},
@@ -71,4 +72,5 @@ function FormDemo() {
 export const FormAndBadges: Story = {
   render: () => <FormDemo />,
   parameters: { layout: "padded" },
+  args: { services, members: [] },
 };

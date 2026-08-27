@@ -12,7 +12,7 @@ import RolesPage from "./pages/RolesPage";
 type Tab = "cal" | "jobs" | "staff" | "services" | "roles";
 
 const NAV: { key: Tab; icon: typeof CalendarDays; label: string }[] = [
-  { key: "cal", icon: CalendarDays, label: "週間カレンダー" },
+  { key: "cal", icon: CalendarDays, label: "スケジュール" },
   { key: "jobs", icon: ListTodo, label: "作業一覧" },
   { key: "staff", icon: Users, label: "スタッフ" },
   { key: "services", icon: Sparkles, label: "サービス" },

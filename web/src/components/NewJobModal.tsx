@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Service } from "../types";
+import type { Member, Service } from "../types";
 import { api } from "../api";
 import { todayISO, fmtMin } from "../date";
 import { Button } from "./ui/button";
@@ -12,17 +12,29 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 type Props = {
   services: Service[];
+  members: Member[];
   defaultDate?: string;
+  defaultStaffId?: string | null;
+  defaultStartMinute?: number | null;
   onClose: () => void;
   onCreated: () => void;
 };
 
-export default function NewJobModal({ services, defaultDate, onClose, onCreated }: Props) {
+export default function NewJobModal({
+  services,
+  members,
+  defaultDate,
+  defaultStaffId,
+  defaultStartMinute,
+  onClose,
+  onCreated,
+}: Props) {
   const [customerName, setCustomerName] = useState("");
   const [serviceId, setServiceId] = useState("");
+  const [staffId, setStaffId] = useState(defaultStaffId ?? "");
   const [address, setAddress] = useState("");
   const [date, setDate] = useState(defaultDate ?? todayISO());
-  const [startMinute, setStartMinute] = useState(600);
+  const [startMinute, setStartMinute] = useState(defaultStartMinute ?? 600);
   const [durationMin, setDurationMin] = useState(60);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,7 +43,7 @@ export default function NewJobModal({ services, defaultDate, onClose, onCreated 
     e.preventDefault();
     setBusy(true);
     try {
-      await api("/api/jobs", {
+      const res = await api<{ id: string }>("/api/jobs", {
         method: "POST",
         body: JSON.stringify({
           customerName,
@@ -43,6 +55,12 @@ export default function NewJobModal({ services, defaultDate, onClose, onCreated 
           notes,
         }),
       });
+      if (staffId) {
+        await api(`/api/jobs/${res.id}/assign`, {
+          method: "POST",
+          body: JSON.stringify({ memberId: staffId }),
+        });
+      }
       toast.success(`「${customerName}」の作業を追加しました`);
       onCreated();
       onClose();
@@ -58,7 +76,7 @@ export default function NewJobModal({ services, defaultDate, onClose, onCreated 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>作業を追加</DialogTitle>
-          <DialogDescription>顧客・日時・サービスを入力して追加。</DialogDescription>
+          <DialogDescription>顧客・日時・サービス・担当を入力して追加。</DialogDescription>
         </DialogHeader>
         <form onSubmit={create} className="space-y-4">
           <div className="space-y-1.5">
@@ -72,20 +90,37 @@ export default function NewJobModal({ services, defaultDate, onClose, onCreated 
               required
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>サービス</Label>
-            <Select value={serviceId} onValueChange={setServiceId}>
-              <SelectTrigger>
-                <SelectValue placeholder="（未設定）" />
-              </SelectTrigger>
-              <SelectContent>
-                {services.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>サービス</Label>
+              <Select value={serviceId} onValueChange={setServiceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="（未設定）" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>担当 (任意)</Label>
+              <Select value={staffId} onValueChange={setStaffId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="あとで選ぶ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.user.id}>
+                      {m.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">

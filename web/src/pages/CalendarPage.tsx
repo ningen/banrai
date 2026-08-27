@@ -2,21 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { api } from "../api";
 import type { Job, Member, Service } from "../types";
-import { addDays, fmtRangeJP, startOfWeek, todayISO } from "../date";
-import WeekCalendar from "../components/WeekCalendar";
+import { addDays, fmtDateJP, todayISO } from "../date";
+import DaySchedule from "../components/DaySchedule";
 import JobDrawer from "../components/JobDrawer";
 import NewJobModal from "../components/NewJobModal";
 
+type ModalState = {
+  date: string;
+  staffUserId: string | null;
+  startMinute: number | null;
+};
+
 export default function CalendarPage() {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(todayISO()));
+  const [date, setDate] = useState(() => todayISO());
   const [jobs, setJobs] = useState<Job[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [selected, setSelected] = useState<Job | null>(null);
-  const [modalDate, setModalDate] = useState<string | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -24,7 +28,7 @@ export default function CalendarPage() {
       const [svc, mem, jobsRes] = await Promise.all([
         api<{ services: Service[] }>("/api/services"),
         authClient.organization.listMembers(),
-        fetch(`/api/jobs?from=${weekStart}&to=${weekEnd}`),
+        fetch(`/api/jobs?from=${date}&to=${date}`),
       ]);
       const jobsBody = await jobsRes.json();
       setServices(svc.services);
@@ -33,7 +37,7 @@ export default function CalendarPage() {
     } catch (err) {
       setError(String((err as Error).message));
     }
-  }, [weekStart, weekEnd]);
+  }, [date]);
 
   useEffect(() => {
     void load();
@@ -47,40 +51,45 @@ export default function CalendarPage() {
     }
   }, [load, selected, jobs]);
 
+  const weekday = useMemo(
+    () => ["日", "月", "火", "水", "木", "金", "土"][new Date(`${date}T00:00:00`).getDay()],
+    [date],
+  );
+
   return (
     <div>
-      <div className="page-head">
-        <div>
-          <h2>週間カレンダー</h2>
-          <div className="sub">
-            スタッフごとの作業割当。空きマスをクリックすると新規追加できます。
-          </div>
-        </div>
-      </div>
-
       <div className="cal-toolbar">
         <div className="cal-nav">
-          <button onClick={() => setWeekStart((w) => addDays(w, -7))}>←</button>
-          <button onClick={() => setWeekStart(startOfWeek(todayISO()))}>今日</button>
-          <button onClick={() => setWeekStart((w) => addDays(w, 7))}>→</button>
+          <button onClick={() => setDate((d) => addDays(d, -1))}>←</button>
+          <button onClick={() => setDate(todayISO())}>今日</button>
+          <button onClick={() => setDate((d) => addDays(d, 1))}>→</button>
         </div>
-        <div className="cal-range">{fmtRangeJP(weekStart, weekEnd)}</div>
-        <div style={{ marginLeft: "auto" }}>
-          <button className="primary" onClick={() => setModalDate(todayISO())}>
-            + 作業を追加
-          </button>
+        <div className="cal-range num">
+          {fmtDateJP(date)}（{weekday}）
         </div>
+        <div className="muted num" style={{ marginLeft: "auto" }}>
+          作業 {jobs.length} 件
+        </div>
+        <button
+          className="primary"
+          style={{ marginLeft: 6 }}
+          onClick={() => setModal({ date, staffUserId: null, startMinute: null })}
+        >
+          + 作業を追加
+        </button>
       </div>
 
       {error && <p className="error">{error}</p>}
 
-      <div className="card" style={{ padding: 16, overflowX: "auto" }}>
-        <WeekCalendar
+      <div className="card" style={{ padding: "14px 12px" }}>
+        <DaySchedule
+          dateISO={date}
           jobs={jobs}
           members={members}
-          weekStartISO={weekStart}
           onSelectJob={setSelected}
-          onCreateAt={(date) => setModalDate(date)}
+          onCreateAt={(d, staffUserId, startMinute) =>
+            setModal({ date: d, staffUserId, startMinute })
+          }
         />
       </div>
 
@@ -93,11 +102,14 @@ export default function CalendarPage() {
           onChanged={() => void reloadKeep()}
         />
       )}
-      {modalDate && (
+      {modal && (
         <NewJobModal
           services={services}
-          defaultDate={modalDate}
-          onClose={() => setModalDate(null)}
+          members={members}
+          defaultDate={modal.date}
+          defaultStaffId={modal.staffUserId}
+          defaultStartMinute={modal.startMinute}
+          onClose={() => setModal(null)}
           onCreated={() => void load()}
         />
       )}

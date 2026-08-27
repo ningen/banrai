@@ -14,19 +14,21 @@ const config: StorybookConfig = {
       viteConfigPath: "./web/vite.config.ts",
     },
   },
-  async viteFinal(config) {
-    config.resolve = config.resolve ?? {};
-    config.resolve.alias = {
-      ...(config.resolve.alias ?? {}),
-      "@": path.resolve(webRoot, "src"),
-    };
-    const hasTailwind = (config.plugins ?? []).some(
-      (p) => p && typeof p === "object" && "name" in p && String((p as { name?: string }).name).includes("tailwindcss"),
+  async viteFinal(merged) {
+    merged.resolve ??= {};
+    merged.resolve.alias ??= {};
+    merged.resolve.alias["@"] = path.resolve(webRoot, "src");
+    const hasTailwind = (merged.plugins ?? []).some(
+      (p) =>
+        p &&
+        typeof p === "object" &&
+        "name" in p &&
+        String((p as { name?: string }).name).includes("tailwindcss"),
     );
     if (!hasTailwind) {
-      config.plugins = [...(config.plugins ?? []), tailwindcss()];
+      merged.plugins = [...(merged.plugins ?? []), tailwindcss()];
     }
-    return config;
+    return merged;
   },
 };
 
