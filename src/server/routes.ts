@@ -28,11 +28,18 @@ const serviceSchema = z.object({
 
 const STRING_LIST = z.array(z.string().min(1).max(200)).max(20).default([]);
 
+const addressSchema = z.object({
+  postal: z.string().max(10).optional().default(""),
+  prefecture: z.string().max(20).optional().default(""),
+  city: z.string().max(60).optional().default(""),
+  rest: z.string().max(200).optional().default(""),
+});
+
 const customerSchema = z.object({
   name: z.string().min(1).max(100),
   phones: STRING_LIST,
   emails: STRING_LIST,
-  addresses: STRING_LIST,
+  addresses: z.array(addressSchema).max(20).default([]),
   notes: z.string().max(1000).optional().default(""),
 });
 
@@ -80,6 +87,82 @@ async function parseBody<T>(c: Ctx, schema: z.ZodType<T>): Promise<T | Response>
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid_input", issues: parsed.error.issues }, 400);
   return parsed.data;
+}
+
+const PREFECTURES = [
+  "北海道",
+  "青森県",
+  "岩手県",
+  "宮城県",
+  "秋田県",
+  "山形県",
+  "福島県",
+  "茨城県",
+  "栃木県",
+  "群馬県",
+  "埼玉県",
+  "千葉県",
+  "東京都",
+  "神奈川県",
+  "新潟県",
+  "富山県",
+  "石川県",
+  "福井県",
+  "山梨県",
+  "長野県",
+  "岐阜県",
+  "静岡県",
+  "愛知県",
+  "三重県",
+  "滋賀県",
+  "京都府",
+  "大阪府",
+  "兵庫県",
+  "奈良県",
+  "和歌山県",
+  "鳥取県",
+  "島根県",
+  "岡山県",
+  "広島県",
+  "山口県",
+  "徳島県",
+  "香川県",
+  "愛媛県",
+  "高知県",
+  "福岡県",
+  "佐賀県",
+  "長崎県",
+  "熊本県",
+  "大分県",
+  "宮崎県",
+  "鹿児島県",
+  "沖縄県",
+];
+
+function normalizeAddress(value: unknown): {
+  postal: string;
+  prefecture: string;
+  city: string;
+  rest: string;
+} {
+  if (typeof value === "string") {
+    const pref = PREFECTURES.find((p) => value.startsWith(p)) ?? "";
+    const rest = pref ? value.slice(pref.length) : value;
+    const m = rest.match(/^(.+?[市区郡町村])(.*)$/);
+    const city = m ? m[1]! : rest;
+    const after = m ? (m[2] ?? "") : "";
+    return { postal: "", prefecture: pref, city, rest: after };
+  }
+  if (typeof value === "object" && value !== null) {
+    const a = value as Record<string, unknown>;
+    return {
+      postal: String(a.postal ?? ""),
+      prefecture: String(a.prefecture ?? ""),
+      city: String(a.city ?? ""),
+      rest: String(a.rest ?? ""),
+    };
+  }
+  return { postal: "", prefecture: "", city: "", rest: "" };
 }
 
 export function createApi(auth: Auth) {
@@ -484,7 +567,7 @@ export function createApi(auth: Auth) {
         ...r,
         phones: JSON.parse(r.phones || "[]"),
         emails: JSON.parse(r.emails || "[]"),
-        addresses: JSON.parse(r.addresses || "[]"),
+        addresses: (JSON.parse(r.addresses || "[]") as unknown[]).map(normalizeAddress),
       })),
     });
   });

@@ -10,14 +10,25 @@ export type Service = {
   options: ServiceOption[];
 };
 
+export type CustomerAddress = {
+  postal: string;
+  prefecture: string;
+  city: string;
+  rest: string;
+};
+
 export type Customer = {
   id: string;
   name: string;
   phones: string[];
   emails: string[];
-  addresses: string[];
+  addresses: CustomerAddress[];
   notes: string;
 };
+
+export function joinAddress(a: CustomerAddress): string {
+  return `${a.prefecture}${a.city}${a.rest}`.trim() || (a.postal ? `〒${a.postal}` : "");
+}
 
 export type JobStatus = {
   name: string;

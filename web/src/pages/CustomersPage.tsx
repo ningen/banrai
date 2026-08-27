@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+
 import { api } from "../api";
 import type { Customer } from "../types";
+import { joinAddress } from "../types";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import CustomerModal from "../components/CustomerModal";
+import SearchBox from "../components/SearchBox";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -61,15 +62,12 @@ export default function CustomersPage() {
         <Button onClick={() => setCreating(true)}>+ 顧客を追加</Button>
       </div>
 
-      <div style={{ position: "relative", marginBottom: 14, maxWidth: 360 }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted" />
-        <Input
-          className="pl-9"
-          placeholder="名前・電話・住所で検索…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </div>
+      <SearchBox
+        className="mb-4 max-w-96"
+        placeholder="名前・電話・住所で検索…"
+        value={q}
+        onChange={setQ}
+      />
 
       {error && <p className="error">{error}</p>}
 
@@ -109,10 +107,15 @@ export default function CustomersPage() {
                     </div>
                   ))}
                 </td>
-                <td style={{ maxWidth: 200 }}>
+                <td style={{ maxWidth: 220 }}>
                   {c.addresses.map((a, i) => (
                     <div key={i} style={{ fontSize: 13 }}>
-                      {a}
+                      {a.postal && (
+                        <span className="num muted" style={{ fontSize: 12 }}>
+                          〒{a.postal}{" "}
+                        </span>
+                      )}
+                      {joinAddress(a)}
                     </div>
                   ))}
                 </td>

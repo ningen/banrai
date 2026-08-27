@@ -4,6 +4,7 @@ import type { Job, JobStatus, Member, Service } from "../types";
 import { fmtMin } from "../date";
 import { DurationSelect, TimeSelect } from "./TimeSelect";
 import DatePicker from "./DatePicker";
+import { AddressFields } from "./AddressFields";
 import { StatusChip } from "./bits";
 import { api } from "../api";
 import { Button } from "./ui/button";
@@ -135,10 +136,9 @@ export default function JobDrawer({ job, services, members, statuses, onClose, o
                 placeholder="電話"
                 onChange={(e) => patch({ phone: e.target.value })}
               />
-              <Input
+              <AddressFields
                 value={job.address}
-                placeholder="住所"
-                onChange={(e) => patch({ address: e.target.value })}
+                onChange={(joined) => void patch({ address: joined })}
               />
             </div>
           </div>

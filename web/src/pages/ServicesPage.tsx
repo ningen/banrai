@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+
 import { api } from "../api";
 import type { Service } from "../types";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import ServiceModal from "../components/ServiceModal";
+import SearchBox from "../components/SearchBox";
 
 export const SERVICE_COLORS = [
   "#29A3E8", // aircon
@@ -77,15 +77,12 @@ export default function ServicesPage() {
         <Button onClick={() => setCreating(true)}>+ サービスを追加</Button>
       </div>
 
-      <div style={{ position: "relative", marginBottom: 14, maxWidth: 360 }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted" />
-        <Input
-          className="pl-9"
-          placeholder="サービス名で検索…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </div>
+      <SearchBox
+        className="mb-4 max-w-96"
+        placeholder="サービス名で検索…"
+        value={q}
+        onChange={setQ}
+      />
 
       {error && <p className="error">{error}</p>}
 

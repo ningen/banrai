@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Customer, Member, Service } from "../types";
+import { joinAddress } from "../types";
 import { api } from "../api";
 import { todayISO } from "../date";
 import { DurationSelect, TimeSelect } from "./TimeSelect";
 import DatePicker from "./DatePicker";
+import { AddressFields } from "./AddressFields";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -51,7 +53,7 @@ export default function NewJobModal({
     if (c) {
       setCustomerName(c.name);
       if (c.phones.length > 0) setPhone(c.phones[0]!);
-      if (c.addresses.length > 0) setAddress(c.addresses[0]!);
+      if (c.addresses.length > 0) setAddress(joinAddress(c.addresses[0]!));
     } else {
       setCustomerId("");
     }
@@ -214,19 +216,18 @@ export default function NewJobModal({
                   <SelectContent>
                     {customers
                       .find((c) => c.id === customerId)!
-                      .addresses.map((a) => (
-                        <SelectItem key={a} value={a}>
-                          {a}
-                        </SelectItem>
-                      ))}
+                      .addresses.map((a, i) => {
+                        const label = joinAddress(a);
+                        return (
+                          <SelectItem key={i} value={label}>
+                            {a.postal ? `〒${a.postal} ${label}` : label}
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               ) : (
-                <Input
-                  value={address}
-                  placeholder="住所"
-                  onChange={(e) => setAddress(e.target.value)}
-                />
+                <AddressFields value={address} onChange={setAddress} compact />
               )}
             </div>
           </div>

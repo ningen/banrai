@@ -163,7 +163,10 @@ describe("banrai worker", () => {
         name: "山田 太郎",
         phones: ["090-1111-2222", "090-3333-4444"],
         emails: ["y@example.com", "y2@example.com"],
-        addresses: ["住所A", "住所B"],
+        addresses: [
+          { postal: "100-0001", prefecture: "東京都", city: "千代田区", rest: "1-1" },
+          { postal: "", prefecture: "大阪府", city: "大阪市", rest: "北区2-2" },
+        ],
       },
       ownerCookie,
     );

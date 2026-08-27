@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { Check, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { authClient } from "../lib/auth-client";
 import { api } from "../api";
 import type { Job, JobStatus, Member, Service } from "../types";
@@ -29,6 +30,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { cn } from "@/lib/utils";
+import SearchBox from "../components/SearchBox";
 
 const STATUS_COLORS = ["#64748b", "#2753e4", "#0e9f6e", "#c93f3f", "#2F6B45", "#A6402A", "#8A6BE0"];
 
@@ -45,19 +47,15 @@ function KanbanCard({
   onOpen: () => void;
   onMove: (status: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
     data: { job },
   });
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.4 : 1,
-  };
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ opacity: isDragging ? 0.3 : 1 }}
       {...listeners}
       {...attributes}
       className={cn("kanban-card", job.status_done && "dim")}
@@ -184,6 +182,7 @@ export default function JobsPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Job | null>(null);
+  const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [addStatusOpen, setAddStatusOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -258,6 +257,7 @@ export default function JobsPage() {
 
   const onDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setActiveJob(null);
       const { active, over } = event;
       if (!over) return;
       const status = String(over.id);
@@ -267,6 +267,16 @@ export default function JobsPage() {
     },
     [moveStatus, statuses],
   );
+
+  const onDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const job = jobs.find((j) => j.id === String(event.active.id));
+      setActiveJob(job ?? null);
+    },
+    [jobs],
+  );
+
+  const onDragCancel = useCallback(() => setActiveJob(null), []);
 
   const addStatus = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -313,20 +323,22 @@ export default function JobsPage() {
         </Button>
       </div>
 
-      <div style={{ position: "relative", marginBottom: 14, maxWidth: 420 }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted" />
-        <Input
-          className="pl-9"
-          placeholder="顧客名・住所・電話・メモで検索…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void load()}
-        />
-      </div>
+      <SearchBox
+        className="mb-4 max-w-105"
+        placeholder="顧客名・住所・電話・メモで検索…"
+        value={q}
+        onChange={setQ}
+        onEnter={() => void load(q)}
+      />
 
       {error && <p className="error">{error}</p>}
 
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragCancel={onDragCancel}
+      >
         <div
           className="card"
           style={{
@@ -350,6 +362,20 @@ export default function JobsPage() {
             />
           ))}
         </div>
+        <DragOverlay dropAnimation={{ duration: 160 }}>
+          {activeJob && (
+            <div
+              className="kanban-card"
+              style={{ boxShadow: "var(--shadow-2)", cursor: "grabbing" }}
+            >
+              <div className="kanban-time num">
+                {fmtMin(activeJob.start_minute) || "時間未定"}・{activeJob.customer_name}
+              </div>
+              <div className="kanban-customer">{activeJob.customer_name}</div>
+              <SvcChip name={activeJob.service_name} color={activeJob.service_color} />
+            </div>
+          )}
+        </DragOverlay>
       </DndContext>
 
       {selected && (
