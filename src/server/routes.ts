@@ -129,7 +129,13 @@ export function createApi(auth: Auth) {
     )
       .bind(g.orgId)
       .all()) as any;
-    return c.json({ services: rows.results });
+    return c.json({
+      services: rows.results.map((r: any) => ({
+        ...r,
+        options: JSON.parse((r.options as string | null) ?? "[]"),
+        price: r.price ?? 0,
+      })),
+    });
   });
 
   api.post("/services", async (c) => {
