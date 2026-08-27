@@ -53,6 +53,7 @@ const job: Job = {
   phone: "090-1234-5678",
   status_color: "#2753e4",
   status_done: 0,
+  position: 0,
   scheduled_date: "2026-08-27",
   start_minute: 600,
   duration_min: 90,

@@ -44,6 +44,13 @@ npm run dev                       # worker: http://localhost:8787 / web: http://
 
 `wrangler dev` 中のメールは `[mail:skip]` としてログされる (`EMAIL_FROM` 未設定時)。
 
+## 時間の扱い (JST 固定)
+
+- カレンダー・日付・時刻の表示/保存は **Japan Standard Time (Asia/Tokyo) 固定**です
+- `scheduled_date` は JST のカレンダー日 `YYYY-MM-DD`、`start_minute` は JST 0時起点の分数
+- `created_at` / `updated_at` はエポックミリ秒 (タイムゾーン非依存)
+- クライアントの「今日」判定・現在時刻ライン・サーバーの日付生成もすべて JST で計算されます
+
 ## ツールチェーン
 
 - **lint**: oxlint (`npm run lint`)

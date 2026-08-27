@@ -66,15 +66,20 @@ const CUSTOMERS: {
   },
 ];
 
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function jstDateISO(ms: number): string {
+  const d = new Date(ms + JST_OFFSET_MS);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+// カレンダー日付は JST (Asia/Tokyo) 固定
 function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return jstDateISO(Date.now());
 }
 
 function tomorrowISO(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return jstDateISO(Date.now() + 86400000);
 }
 
 async function userByEmail(env: Env, email: string): Promise<string | null> {

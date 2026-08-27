@@ -1,45 +1,73 @@
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+export type JSTParts = {
+  year: number;
+  month: number; // 1-12
+  day: number;
+  weekday: number; // 0=Sun
+};
+
+function jstParts(ms: number): JSTParts {
+  const d = new Date(ms + JST_OFFSET_MS);
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+    weekday: d.getUTCDay(),
+  };
+}
+
+function fromParts(p: JSTParts): string {
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+}
+
 export function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return fromParts(jstParts(Date.now()));
 }
 
-export function parseISO(date: string): Date {
-  return new Date(`${date}T00:00:00`);
+export function fromISO(iso: string): number {
+  return new Date(`${iso}T00:00:00+09:00`).getTime();
 }
 
-export function toISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export function toISO(ms: number): string {
+  return fromParts(jstParts(ms));
+}
+
+/** 互換シグネチャ: 入力 Date (or ms) を JST 日付に */
+export function toISODate(d: Date): string {
+  return fromParts(jstParts(d.getTime()));
 }
 
 export function addDays(iso: string, days: number): string {
-  const d = parseISO(iso);
-  d.setDate(d.getDate() + days);
-  return toISO(d);
+  return toISO(fromISO(iso) + days * 86400000);
 }
 
 export function startOfWeek(iso: string): string {
-  const d = parseISO(iso);
-  const offset = (d.getDay() + 6) % 7; // Monday-start
-  d.setDate(d.getDate() - offset);
-  return toISO(d);
+  const ms = fromISO(iso);
+  const offset = (jstParts(ms).weekday + 6) % 7; // Monday-start
+  return toISO(ms - offset * 86400000);
 }
 
 export function isToday(iso: string): boolean {
   return iso === todayISO();
 }
 
-export const WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"];
+export function datePartsJST(iso: string): JSTParts {
+  return jstParts(fromISO(iso));
+}
+
+export const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 export function fmtDateJP(iso: string): string {
-  return `${parseISO(iso).getFullYear()}年${parseISO(iso).getMonth() + 1}月${parseISO(iso).getDate()}日`;
+  const p = datePartsJST(iso);
+  return `${p.year}年${p.month}月${p.day}日`;
 }
 
 export function fmtRangeJP(startISO: string, endISO: string): string {
-  const s = parseISO(startISO);
-  const e = parseISO(endISO);
-  if (s.getMonth() === e.getMonth())
-    return `${s.getMonth() + 1}月${s.getDate()}日 – ${e.getDate()}日`;
-  return `${s.getMonth() + 1}月${s.getDate()}日 – ${e.getMonth() + 1}月${e.getDate()}日`;
+  const s = datePartsJST(startISO);
+  const e = datePartsJST(endISO);
+  if (s.month === e.month && s.year === e.year) return `${s.month}月${s.day}日 – ${e.day}日`;
+  return `${s.month}月${s.day}日 – ${e.month}月${e.day}日`;
 }
 
 export function fmtMin(min: number | null): string {

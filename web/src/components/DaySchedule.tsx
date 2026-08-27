@@ -7,7 +7,8 @@ const DAY_END = 1260; // 21:00
 const HOUR_H = 48; // px per hour
 
 function minutesNow(): number {
-  return (Date.now() / 60000) % 1440;
+  // JST (Asia/Tokyo) での現在時刻
+  return Math.floor(((Date.now() + 9 * 60 * 60 * 1000) / 60000) % 1440);
 }
 
 type Block = {

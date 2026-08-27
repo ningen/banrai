@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { toISO, todayISO } from "../../src/date";
+import { addDays, datePartsJST, todayISO } from "../../src/date";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 function fmtShort(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`;
+  const p = datePartsJST(iso);
+  return `${p.month}/${p.day}（${WEEKDAYS[p.weekday]}）`;
 }
 
 type Props = {
@@ -18,22 +18,28 @@ type Props = {
 };
 
 export default function DatePicker({ value, onChange }: Props) {
-  const v = new Date(`${value}T00:00:00`);
-  const [view, setView] = useState(() => new Date(v.getFullYear(), v.getMonth(), 1));
+  const v = datePartsJST(value);
+  const [view, setView] = useState(() => ({ year: v.year, month: v.month }));
 
   const move = (delta: number) =>
-    setView((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+    setView((prev) => {
+      const m = prev.month - 1 + delta;
+      return { year: prev.year + Math.floor(m / 12), month: (((m % 12) + 12) % 12) + 1 };
+    });
 
-  const year = view.getFullYear();
-  const month = view.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const year = view.year;
+  const month = view.month;
+  const firstISO = `${year}-${String(month).padStart(2, "0")}-01`;
+  const firstDay = datePartsJST(firstISO).weekday;
+  const nextFirstISO =
+    month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const daysInMonth = datePartsJST(addDays(nextFirstISO, -1)).day;
   const today = todayISO();
 
   const cells: (string | null)[] = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push(toISO(new Date(year, month, d)));
+    cells.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
   }
 
   return (

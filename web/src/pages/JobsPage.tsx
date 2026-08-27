@@ -5,17 +5,18 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { authClient } from "../lib/auth-client";
 import { api } from "../api";
 import type { Job, JobStatus, Member, Service } from "../types";
-import { fmtMin, parseISO } from "../date";
+import { datePartsJST, fmtMin } from "../date";
 import { SvcChip } from "../components/bits";
 import JobDrawer from "../components/JobDrawer";
 import { Button } from "../components/ui/button";
@@ -47,15 +48,21 @@ function KanbanCard({
   onOpen: () => void;
   onMove: (status: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: job.id,
     data: { job },
   });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 2 : undefined,
+  };
 
   return (
     <div
       ref={setNodeRef}
-      style={{ opacity: isDragging ? 0.3 : 1 }}
+      style={style}
       {...listeners}
       {...attributes}
       className={cn("kanban-card", job.status_done && "dim")}
@@ -64,8 +71,8 @@ function KanbanCard({
       <div className="flex items-start gap-1">
         <div className="flex-1 min-w-0">
           <div className="kanban-time num">
-            {parseISO(job.scheduled_date).getMonth() + 1}/{parseISO(job.scheduled_date).getDate()}（
-            {["日", "月", "火", "水", "木", "金", "土"][parseISO(job.scheduled_date).getDay()]}）{" "}
+            {datePartsJST(job.scheduled_date).month}/{datePartsJST(job.scheduled_date).day}（
+            {["日", "月", "火", "水", "木", "金", "土"][datePartsJST(job.scheduled_date).weekday]}）{" "}
             {fmtMin(job.start_minute) || "時間未定"}
           </div>
           <div className="kanban-customer">{job.customer_name}</div>
@@ -155,16 +162,18 @@ function KanbanColumn({
         </span>
       </div>
       <div className="kanban-body">
-        {jobs.map((j) => (
-          <KanbanCard
-            key={j.id}
-            job={j}
-            members={members}
-            statuses={statuses}
-            onOpen={() => onOpenJob(j)}
-            onMove={(s) => onMove(j.id, s)}
-          />
-        ))}
+        <SortableContext items={jobs.map((j) => j.id)} strategy={verticalListSortingStrategy}>
+          {jobs.map((j) => (
+            <KanbanCard
+              key={j.id}
+              job={j}
+              members={members}
+              statuses={statuses}
+              onOpen={() => onOpenJob(j)}
+              onMove={(s) => onMove(j.id, s)}
+            />
+          ))}
+        </SortableContext>
         {jobs.length === 0 && (
           <div className="muted" style={{ fontSize: 12, padding: "6px 2px" }}>
             なし
@@ -239,6 +248,14 @@ export default function JobsPage() {
       list.push(j);
       map.set(j.status, list);
     }
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) =>
+          (a.position ?? 0) - (b.position ?? 0) ||
+          a.scheduled_date.localeCompare(b.scheduled_date) ||
+          (a.start_minute ?? 0) - (b.start_minute ?? 0),
+      );
+    }
     return map;
   }, [jobs, statuses]);
 
@@ -256,16 +273,66 @@ export default function JobsPage() {
   );
 
   const onDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      setActiveJob(null);
+    async (event: DragEndEvent) => {
       const { active, over } = event;
+      setActiveJob(null);
       if (!over) return;
-      const status = String(over.id);
-      if (status && statuses.some((s) => s.name === status)) {
-        void moveStatus(String(active.id), status);
+
+      const activeId = String(active.id);
+      const overId = String(over.id);
+      const moved = jobs.find((j) => j.id === activeId);
+      if (!moved) return;
+
+      const isStatusOver = statuses.some((s) => s.name === overId);
+      let targetCol: string;
+      let insertIndex: number;
+      if (isStatusOver) {
+        targetCol = overId;
+        insertIndex = -1; // 末尾に挿入
+      } else {
+        const overJob = jobs.find((j) => j.id === overId);
+        if (!overJob) return;
+        targetCol = overJob.status;
+        const colJobs = jobs
+          .filter((j) => j.status === targetCol && j.id !== activeId)
+          .toSorted(
+            (a, b) =>
+              (a.position ?? 0) - (b.position ?? 0) ||
+              a.scheduled_date.localeCompare(b.scheduled_date) ||
+              (a.start_minute ?? 0) - (b.start_minute ?? 0),
+          );
+        const overIdx = colJobs.findIndex((j) => j.id === overId);
+        const overRectTop = (over as { rect?: { top: number; height: number } }).rect?.top;
+        const activeTop = active.rect.current.translated?.top;
+        const insertAfter =
+          overRectTop !== undefined &&
+          activeTop !== undefined &&
+          activeTop > overRectTop + ((over as { rect?: { height: number } }).rect?.height ?? 0) / 2
+            ? 1
+            : 0;
+        insertIndex = Math.min(colJobs.length, Math.max(0, overIdx + insertAfter));
+      }
+
+      const targetColJobs = jobs.filter((j) => j.status === targetCol && j.id !== activeId);
+      const nextOrder = [...(targetCol.trim() ? targetColJobs : [])];
+      const movedIn = { ...moved, status: targetCol };
+      if (insertIndex === -1) nextOrder.push(movedIn);
+      else nextOrder.splice(insertIndex, 0, movedIn);
+
+      try {
+        await Promise.all(
+          nextOrder.map((j, i) => {
+            const body: Record<string, unknown> = { position: i * 10 };
+            if (j.id === activeId && moved.status !== targetCol) body.status = targetCol;
+            return api(`/api/jobs/${j.id}`, { method: "PATCH", body: JSON.stringify(body) });
+          }),
+        );
+        await load();
+      } catch (err) {
+        toast.error(String((err as Error).message));
       }
     },
-    [moveStatus, statuses],
+    [jobs, statuses, load],
   );
 
   const onDragStart = useCallback(

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { api } from "../api";
 import type { Customer, Job, JobStatus, Member, Service } from "../types";
-import { addDays, fmtDateJP, todayISO } from "../date";
+import { addDays, datePartsJST, fmtDateJP, todayISO } from "../date";
 import DaySchedule from "../components/DaySchedule";
 import JobDrawer from "../components/JobDrawer";
 import NewJobModal from "../components/NewJobModal";
@@ -58,7 +58,7 @@ export default function CalendarPage() {
   }, [load, selected, jobs]);
 
   const weekday = useMemo(
-    () => ["日", "月", "火", "水", "木", "金", "土"][new Date(`${date}T00:00:00`).getDay()],
+    () => ["日", "月", "火", "水", "木", "金", "土"][datePartsJST(date).weekday],
     [date],
   );
 

@@ -73,6 +73,7 @@ const jobSchema = z.object({
   durationMin: z.number().int().min(15).max(720).optional().default(60),
   notes: z.string().max(1000).optional().default(""),
   status: z.string().min(1).max(30).optional(),
+  position: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 const assignSchema = z.object({

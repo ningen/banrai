@@ -63,6 +63,7 @@ export type Job = {
   status: string;
   status_color: string | null;
   status_done: number | null;
+  position: number;
   notes: string;
   assignments: Assignment[];
 };

@@ -6,6 +6,7 @@ import servicesColorSql from "../../migrations/0002_services_color.sql?raw";
 import customersSql from "../../migrations/0003_customers_and_billing.sql?raw";
 import statusesSql from "../../migrations/0004_statuses_and_contacts.sql?raw";
 import jobsAddressSql from "../../migrations/0005_jobs_address.sql?raw";
+import jobsPositionSql from "../../migrations/0006_jobs_position.sql?raw";
 
 const BASE = "https://example.com";
 
@@ -25,6 +26,7 @@ beforeAll(async () => {
     customersSql,
     statusesSql,
     jobsAddressSql,
+    jobsPositionSql,
   ]) {
     for (const statement of splitStatements(sql)) {
       await env.DB.prepare(statement)
