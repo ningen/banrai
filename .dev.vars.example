@@ -1,0 +1,4 @@
+BETTER_AUTH_SECRET=dev-secret-change-me-0123456789abcdef
+BETTER_AUTH_URL=http://localhost:8787
+EMAIL_FROM=
+BOOTSTRAP_ADMIN_EMAIL=
