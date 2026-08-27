@@ -41,6 +41,7 @@ type Guarded = {
   session: NonNullable<Awaited<ReturnType<Auth["api"]["getSession"]>>>;
   orgId: string;
 };
+import { ensureDemo, DEMO_LOGIN } from "./demo";
 
 async function parseBody<T>(c: Ctx, schema: z.ZodType<T>): Promise<T | Response> {
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
@@ -50,6 +51,35 @@ async function parseBody<T>(c: Ctx, schema: z.ZodType<T>): Promise<T | Response>
 
 export function createApi(auth: Auth) {
   const api = new Hono<{ Bindings: Env }>();
+
+  api.post("/demo/login", async (c) => {
+    const { orgId } = await ensureDemo(c.env, auth);
+    const origin = new URL(c.req.url).origin;
+
+    const signIn = await auth.handler(
+      new Request(`${origin}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: JSON.stringify({ email: DEMO_LOGIN.email, password: DEMO_LOGIN.password }),
+      }),
+    );
+    if (!signIn.ok) return c.json({ error: "demo_signin_failed" }, 502);
+
+    const cookies = signIn.headers.getSetCookie();
+    const cookieStr = cookies.map((x: string) => x.split(";")[0]!).join("; ");
+    const active = await auth.handler(
+      new Request(`${origin}/api/auth/organization/set-active`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin, cookie: cookieStr },
+        body: JSON.stringify({ organizationId: orgId }),
+      }),
+    );
+
+    const res = Response.json({ ok: true });
+    for (const cc of cookies) res.headers.append("set-cookie", cc);
+    for (const cc of active.headers.getSetCookie()) res.headers.append("set-cookie", cc);
+    return res;
+  });
 
   async function guard(c: Ctx): Promise<Guarded | Response> {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });

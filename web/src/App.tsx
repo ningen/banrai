@@ -131,6 +131,38 @@ function AuthScreen() {
           <Button disabled={busy} style={{ width: "100%" }}>
             {busy ? "…" : mode === "signin" ? "ログイン" : "登録する"}
           </Button>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+            <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+            <span style={{ color: "var(--faint)", fontSize: 11 }}>お試し</span>
+            <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            style={{ width: "100%" }}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                const r = await fetch("/api/demo/login", {
+                  method: "POST",
+                  headers: { origin: location.origin, "content-type": "application/json" },
+                });
+                if (!r.ok) throw new Error("demo login failed");
+                location.reload();
+              } catch (err) {
+                setError(String((err as Error).message));
+                setBusy(false);
+              }
+            }}
+          >
+            デモアカウントで試してみる
+          </Button>
+          <p className="muted" style={{ fontSize: 11.5, lineHeight: 1.6 }}>
+            デモ: 事業主としてログインし、スタッフ3名・作業サンプル入りの「デモ清掃サービス」を
+            そのまま操作できます。誰でも同じデモデータを共有します。
+          </p>
         </form>
       </div>
     </div>

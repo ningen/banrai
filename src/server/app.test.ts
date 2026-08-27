@@ -59,6 +59,33 @@ describe("banrai worker", () => {
     expect(res.status).toBe(401);
   });
 
+  it("demo login seeds tenants and returns a working session", async () => {
+    const res = await post("/api/demo/login", {});
+    expect(res.status).toBe(200);
+    const cookie = cookieFrom(res);
+
+    const svc = await get("/api/services", cookie);
+    expect(svc.status).toBe(200);
+    const services = ((await svc.json()) as { services: { name: string }[] }).services;
+    expect(services.map((s) => s.name)).toEqual(
+      expect.arrayContaining(["エアコンクリーニング", "ハウスクリーニング", "レンジフード"]),
+    );
+
+    const jobsRes = await get("/api/jobs?from=2026-08-01&to=2027-12-31", cookie);
+    expect(jobsRes.status).toBe(200);
+    const jobs = ((await jobsRes.json()) as { jobs: unknown[] }).jobs;
+    expect(jobs.length).toBeGreaterThanOrEqual(6);
+
+    // 2回叩いても冪等 (新規シードされない)
+    await post("/api/demo/login", {});
+    const jobsAfter = (
+      (await (await get("/api/jobs?from=2026-08-01&to=2027-12-31", cookie)).json()) as {
+        jobs: unknown[];
+      }
+    ).jobs;
+    expect(jobsAfter.length).toBe(jobs.length);
+  });
+
   it("runs the full owner/staff workflow with dynamic roles", async () => {
     // owner signup + org
     let res = await post("/api/auth/sign-up/email", {
