@@ -283,41 +283,47 @@ export default function JobsPage() {
       const moved = jobs.find((j) => j.id === activeId);
       if (!moved) return;
 
+      // ドロップ先の列を決める: 列そのもの or 他カードの上
       const isStatusOver = statuses.some((s) => s.name === overId);
       let targetCol: string;
-      let insertIndex: number;
-      if (isStatusOver) {
-        targetCol = overId;
-        insertIndex = -1; // 末尾に挿入
-      } else {
+      if (isStatusOver) targetCol = overId;
+      else {
         const overJob = jobs.find((j) => j.id === overId);
         if (!overJob) return;
         targetCol = overJob.status;
-        const colJobs = jobs
-          .filter((j) => j.status === targetCol && j.id !== activeId)
-          .toSorted(
-            (a, b) =>
-              (a.position ?? 0) - (b.position ?? 0) ||
-              a.scheduled_date.localeCompare(b.scheduled_date) ||
-              (a.start_minute ?? 0) - (b.start_minute ?? 0),
-          );
-        const overIdx = colJobs.findIndex((j) => j.id === overId);
-        const overRectTop = (over as { rect?: { top: number; height: number } }).rect?.top;
-        const activeTop = active.rect.current.translated?.top;
-        const insertAfter =
-          overRectTop !== undefined &&
-          activeTop !== undefined &&
-          activeTop > overRectTop + ((over as { rect?: { height: number } }).rect?.height ?? 0) / 2
-            ? 1
-            : 0;
-        insertIndex = Math.min(colJobs.length, Math.max(0, overIdx + insertAfter));
       }
 
-      const targetColJobs = jobs.filter((j) => j.status === targetCol && j.id !== activeId);
-      const nextOrder = [...(targetCol.trim() ? targetColJobs : [])];
-      const movedIn = { ...moved, status: targetCol };
-      if (insertIndex === -1) nextOrder.push(movedIn);
-      else nextOrder.splice(insertIndex, 0, movedIn);
+      // 挿入先の基準となる列内リスト (position 順) を1本だけ作る
+      const colSorted = jobs
+        .filter((j) => j.status === targetCol && j.id !== activeId)
+        .toSorted(
+          (a, b) =>
+            (a.position ?? 0) - (b.position ?? 0) ||
+            a.scheduled_date.localeCompare(b.scheduled_date) ||
+            (a.start_minute ?? 0) - (b.start_minute ?? 0),
+        );
+
+      let insertAt = colSorted.length;
+      if (!isStatusOver) {
+        // カード上にドロップ → そのカードの上/下を判定して挿入位置を決める
+        const overIdx = colSorted.findIndex((j) => j.id === overId);
+        if (overIdx !== -1) {
+          const overRectTop = (over as { rect?: { top: number; height: number } }).rect?.top;
+          const overRectH = (over as { rect?: { height: number } }).rect?.height;
+          const activeTop = active.rect.current.translated?.top;
+          const insertAfter =
+            overRectTop !== undefined &&
+            overRectH !== undefined &&
+            activeTop !== undefined &&
+            activeTop > overRectTop + overRectH / 2
+              ? 1
+              : 0;
+          insertAt = Math.min(colSorted.length, Math.max(0, overIdx + insertAfter));
+        }
+      }
+
+      const nextOrder = [...colSorted];
+      nextOrder.splice(insertAt, 0, { ...moved, status: targetCol });
 
       try {
         await Promise.all(
