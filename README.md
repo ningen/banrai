@@ -51,6 +51,8 @@ npm run dev                       # worker: http://localhost:8787 / web: http://
 - **test**: vitest + `@cloudflare/vitest-plugin` — 実 workerd 上で動作する
   (unit: `src/shared/permissions.test.ts` / integration: `src/server/app.test.ts`)
   - テストは `wrangler.jsonc` を利用し、`migrations/*.sql` を D1 に適用してから実行
+- **UI テスト (Storybook)**: `npm run storybook` (localhost:6006) / `npm run storybook:build`
+  - stories は `web/src/**/*.stories.tsx` (トークン/カレンダー/ドロワー/モーダル/フォーム)
 - **typecheck**: `npm run check:types`
 - まとめて実行: `npm run check`
 - `wrangler.jsonc` を変更したら `npx wrangler types` で `worker-configuration.d.ts` を更新
