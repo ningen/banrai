@@ -37,24 +37,32 @@ const SERVICES: [string, string, number, number, { name: string; price: number }
   ["レンジフード", "#8A6BE0", 60, 8800, [{ name: "配管クリーニング", price: 4400 }]],
 ];
 
-const CUSTOMERS: { name: string; phones: string[]; emails: string[]; addresses: string[] }[] = [
+const CUSTOMERS: {
+  name: string;
+  phones: string[];
+  emails: string[];
+  addresses: { postal: string; prefecture: string; city: string; rest: string }[];
+}[] = [
   {
     name: "丸山マンション 303",
     phones: ["090-1234-5678", "03-1234-5678"],
     emails: ["maruyama@example.com"],
-    addresses: ["東京都渋谷区丸山1-2-3"],
+    addresses: [
+      { postal: "150-0002", prefecture: "東京都", city: "渋谷区", rest: "丸山1-2-3" },
+      { postal: "150-0003", prefecture: "東京都", city: "渋谷区", rest: "丸山4-5-6 別館" },
+    ],
   },
   {
     name: "佐藤様 戸建",
     phones: ["080-9876-5432"],
     emails: ["sato@example.com"],
-    addresses: ["東京都世田谷区宇田川2-3-4"],
+    addresses: [{ postal: "", prefecture: "東京都", city: "世田谷区", rest: "宇田川2-3-4" }],
   },
   {
     name: "青木荘 203",
     phones: ["070-1111-2222"],
     emails: [],
-    addresses: ["神奈川県横浜市青木5-6"],
+    addresses: [{ postal: "", prefecture: "神奈川県", city: "横浜市", rest: "青木5-6" }],
   },
 ];
 
