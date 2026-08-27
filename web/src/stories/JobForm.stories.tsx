@@ -43,13 +43,26 @@ function FormDemo() {
         <Button variant="outline">キャンセル</Button>
         <Button variant="ghost">今日</Button>
         <Button variant="destructive">削除</Button>
-        <Button size="sm" variant="secondary">小さい</Button>
+        <Button size="sm" variant="secondary">
+          小さい
+        </Button>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <Badge variant="outline" className="bg-[var(--surface-2)] text-[var(--muted)]">下書き</Badge>
-        <Badge variant="outline" className="bg-[var(--indigo-10)] text-[var(--indigo)] border-[var(--indigo-20)]">割当日</Badge>
-        <Badge variant="outline" className="bg-[var(--done-soft)] text-[var(--done)]">完了</Badge>
-        <Badge variant="outline" className="bg-[var(--danger-soft)] text-[var(--danger)]">キャンセル</Badge>
+        <Badge variant="outline" className="bg-[var(--surface-2)] text-[var(--muted)]">
+          下書き
+        </Badge>
+        <Badge
+          variant="outline"
+          className="bg-[var(--indigo-10)] text-[var(--indigo)] border-[var(--indigo-20)]"
+        >
+          割当日
+        </Badge>
+        <Badge variant="outline" className="bg-[var(--done-soft)] text-[var(--done)]">
+          完了
+        </Badge>
+        <Badge variant="outline" className="bg-[var(--danger-soft)] text-[var(--danger)]">
+          キャンセル
+        </Badge>
       </div>
     </div>
   );
