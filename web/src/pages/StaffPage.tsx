@@ -1,17 +1,37 @@
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { authClient } from "../lib/auth-client";
+import { api } from "../api";
 import type { Member } from "../types";
+import { Avatar } from "../components/bits";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+
+const STATIC_ROLES = ["owner", "admin", "member"] as const;
 
 export default function StaffPage() {
   const [members, setMembers] = useState<Member[]>([]);
+  const [customRoles, setCustomRoles] = useState<string[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [role, setRole] = useState("member");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const r = await authClient.organization.listMembers();
+    const [r, rolesRes] = await Promise.all([
+      authClient.organization.listMembers(),
+      api<{ roles: { role: string }[] }>("/api/org-roles").catch(() => ({ roles: [] })),
+    ]);
     if (r.error) setError(String((r.error as any)?.message));
     else setMembers((r.data as { members: Member[] } | undefined)?.members ?? []);
+    setCustomRoles(rolesRes.roles.map((x) => x.role));
   }, []);
 
   useEffect(() => {
@@ -23,13 +43,17 @@ export default function StaffPage() {
     setError(null);
     const r = await authClient.organization.inviteMember({ email: inviteEmail, role });
     if (r.error) setError(String((r.error as any)?.message || "invite failed"));
-    else setInviteEmail("");
+    else {
+      toast.success(`「${inviteEmail}」に招待メールを送信しました`);
+      setInviteEmail("");
+    }
   };
 
   const changeRole = async (memberId: string, newRole: string) => {
     setError(null);
     const r = await authClient.organization.updateMemberRole({ memberId, role: newRole });
-    if (r.error) setError(String((r.error as any)?.message));
+    if (r.error) toast.error(String((r.error as any)?.message));
+    else toast.success("ロールを更新しました");
     await load();
   };
 
@@ -38,14 +62,16 @@ export default function StaffPage() {
       <div className="page-head">
         <div>
           <h2>スタッフ</h2>
-          <div className="sub">招待 → 承諾 → ロール付与の手順で追加できます。</div>
+          <div className="sub">
+            招待 → 承諾 → ロール付与。カスタムロールは「ロール」タブで作成できます。
+          </div>
         </div>
       </div>
 
       <form className="card grid-form" onSubmit={invite}>
         <div>
-          <label>スタッフのメールアドレス</label>
-          <input
+          <Label>スタッフのメールアドレス</Label>
+          <Input
             type="email"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
@@ -53,13 +79,23 @@ export default function StaffPage() {
           />
         </div>
         <div>
-          <label>ロール</label>
-          <select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="member">member</option>
-            <option value="admin">admin</option>
-          </select>
+          <Label>初期ロール</Label>
+          <Select value={role} onValueChange={setRole}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="member">member</SelectItem>
+              <SelectItem value="admin">admin</SelectItem>
+              {customRoles.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <button className="primary">招待を送る</button>
+        <Button type="submit">招待を送る</Button>
       </form>
 
       {error && <p className="error">{error}</p>}
@@ -78,32 +114,23 @@ export default function StaffPage() {
             {members.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <span
-                    className="avatar"
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: "50%",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "var(--paper)",
-                      border: "1px solid var(--line-strong)",
-                      fontWeight: 600,
-                      fontSize: 12,
-                    }}
-                  >
-                    {m.user?.name.slice(0, 1) ?? "?"}
-                  </span>
+                  <Avatar name={m.user?.name ?? "?"} size={26} />
                 </td>
                 <td>{m.user?.name}</td>
                 <td className="num">{m.user?.email}</td>
                 <td>
-                  <input
-                    value={m.role}
-                    style={{ width: 120 }}
-                    onChange={(e) => changeRole(m.id, e.target.value)}
-                  />
+                  <Select value={m.role} onValueChange={(v) => changeRole(m.id, v)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[...STATIC_ROLES, ...customRoles].map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {r}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </td>
               </tr>
             ))}

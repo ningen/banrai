@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { api } from "../api";
-import type { Job, Member, Service } from "../types";
+import type { Customer, Job, Member, Service } from "../types";
 import { addDays, fmtDateJP, todayISO } from "../date";
 import DaySchedule from "../components/DaySchedule";
 import JobDrawer from "../components/JobDrawer";
@@ -18,6 +18,7 @@ export default function CalendarPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selected, setSelected] = useState<Job | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,14 +26,16 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [svc, mem, jobsRes] = await Promise.all([
+      const [svc, mem, custRes, jobsRes] = await Promise.all([
         api<{ services: Service[] }>("/api/services"),
         authClient.organization.listMembers(),
+        api<{ customers: Customer[] }>("/api/customers").catch(() => ({ customers: [] })),
         fetch(`/api/jobs?from=${date}&to=${date}`),
       ]);
       const jobsBody = await jobsRes.json();
       setServices(svc.services);
       setMembers((mem.data as { members: Member[] } | undefined)?.members ?? []);
+      setCustomers(custRes.customers);
       setJobs(jobsBody.jobs ?? []);
     } catch (err) {
       setError(String((err as Error).message));
@@ -106,6 +109,7 @@ export default function CalendarPage() {
         <NewJobModal
           services={services}
           members={members}
+          customers={customers}
           defaultDate={modal.date}
           defaultStaffId={modal.staffUserId}
           defaultStartMinute={modal.startMinute}

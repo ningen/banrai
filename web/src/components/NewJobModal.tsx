@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Member, Service } from "../types";
+import type { Customer, Member, Service } from "../types";
 import { api } from "../api";
 import { todayISO, fmtMin } from "../date";
 import { Button } from "./ui/button";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 type Props = {
   services: Service[];
   members: Member[];
+  customers: Customer[];
   defaultDate?: string;
   defaultStaffId?: string | null;
   defaultStartMinute?: number | null;
@@ -23,14 +24,17 @@ type Props = {
 export default function NewJobModal({
   services,
   members,
+  customers,
   defaultDate,
   defaultStaffId,
   defaultStartMinute,
   onClose,
   onCreated,
 }: Props) {
-  const [customerName, setCustomerName] = useState("");
+  const [customerName, setCustomerName] = useState(defaultStaffId ? "" : "");
+  const [customerId, setCustomerId] = useState("");
   const [serviceId, setServiceId] = useState("");
+  const [phone, setPhone] = useState("");
   const [staffId, setStaffId] = useState(defaultStaffId ?? "");
   const [address, setAddress] = useState("");
   const [date, setDate] = useState(defaultDate ?? todayISO());
@@ -39,6 +43,18 @@ export default function NewJobModal({
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const pickCustomer = (id: string) => {
+    setCustomerId(id);
+    const c = customers.find((x) => x.id === id);
+    if (c) {
+      setCustomerName(c.name);
+      setPhone(c.phone);
+      setAddress(c.address);
+    } else {
+      setCustomerId("");
+    }
+  };
+
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -46,9 +62,11 @@ export default function NewJobModal({
       const res = await api<{ id: string }>("/api/jobs", {
         method: "POST",
         body: JSON.stringify({
+          customerId: customerId || null,
           customerName,
-          serviceId: serviceId || null,
+          phone,
           address,
+          serviceId: serviceId || null,
           scheduledDate: date,
           startMinute,
           durationMin,
@@ -89,6 +107,31 @@ export default function NewJobModal({
               placeholder="ex: 丸山ビル 502号室"
               required
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>顧客 (既存)</Label>
+              <Select value={customerId} onValueChange={pickCustomer}>
+                <SelectTrigger>
+                  <SelectValue placeholder="新規名で入力する" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>顧客名 (選択 or 入力)</Label>
+              <Input
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                required
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -150,8 +193,15 @@ export default function NewJobModal({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>住所</Label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Label>電話 / 住所</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Input value={phone} placeholder="電話" onChange={(e) => setPhone(e.target.value)} />
+              <Input
+                value={address}
+                placeholder="住所"
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>メモ</Label>

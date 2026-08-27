@@ -140,12 +140,20 @@ export default function JobDrawer({ job, services, members, onClose, onChanged }
           </div>
 
           <div className="space-y-1.5">
-            <Label>住所</Label>
-            <Input
-              value={job.address}
-              placeholder="住所"
-              onChange={(e) => patch({ address: e.target.value })}
-            />
+            <Label>電話 / 住所</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                className="num"
+                value={job.phone}
+                placeholder="電話"
+                onChange={(e) => patch({ phone: e.target.value })}
+              />
+              <Input
+                value={job.address}
+                placeholder="住所"
+                onChange={(e) => patch({ address: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">

@@ -9,9 +9,33 @@ const members: Member[] = [
 ];
 
 const services: Service[] = [
-  { id: "s1", name: "エアコンクリーニング", description: "", duration_min: 90, color: "#29A3E8" },
-  { id: "s2", name: "ハウスクリーニング", description: "", duration_min: 180, color: "#E8A33D" },
-  { id: "s3", name: "レンジフード", description: "", duration_min: 60, color: "#8A6BE0" },
+  {
+    id: "s1",
+    name: "エアコンクリーニング",
+    description: "",
+    duration_min: 90,
+    color: "#29A3E8",
+    price: 12100,
+    options: [{ name: "室外機", price: 3300 }],
+  },
+  {
+    id: "s2",
+    name: "ハウスクリーニング",
+    description: "",
+    duration_min: 180,
+    color: "#E8A33D",
+    price: 16500,
+    options: [],
+  },
+  {
+    id: "s3",
+    name: "レンジフード",
+    description: "",
+    duration_min: 60,
+    color: "#8A6BE0",
+    price: 8800,
+    options: [],
+  },
 ];
 
 const job: Job = {
@@ -21,6 +45,8 @@ const job: Job = {
   service_color: "#29A3E8",
   customer_name: "丸山ビル 502号室",
   address: "東京都千代田区丸の内1-2-3",
+  customer_id: null,
+  phone: "090-1234-5678",
   scheduled_date: "2026-08-27",
   start_minute: 600,
   duration_min: 90,

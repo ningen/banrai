@@ -12,10 +12,34 @@ const DEMO_USERS = [
 
 const ORG = { name: "デモ清掃サービス", slug: "demo-clean" };
 
-const SERVICES: [string, string, number][] = [
-  ["エアコンクリーニング", "#29A3E8", 90],
-  ["ハウスクリーニング", "#E8A33D", 180],
-  ["レンジフード", "#8A6BE0", 60],
+const SERVICES: [string, string, number, number, { name: string; price: number }[]][] = [
+  [
+    "エアコンクリーニング",
+    "#29A3E8",
+    90,
+    12100,
+    [
+      { name: "室外機", price: 3300 },
+      { name: "グリル洗浄", price: 2200 },
+    ],
+  ],
+  [
+    "ハウスクリーニング",
+    "#E8A33D",
+    180,
+    16500,
+    [
+      { name: "ベランダ", price: 5500 },
+      { name: "水回りブースト", price: 4400 },
+    ],
+  ],
+  ["レンジフード", "#8A6BE0", 60, 8800, [{ name: "配管クリーニング", price: 4400 }]],
+];
+
+const CUSTOMERS: [string, string, string, string][] = [
+  ["丸山マンション 303", "090-1234-5678", "maruyama@example.com", "東京都渋谷区丸山1-2-3"],
+  ["佐藤様 戸建", "080-9876-5432", "sato@example.com", "東京都世田谷区宇田川2-3-4"],
+  ["青木荘 203", "070-1111-2222", "", "神奈川県横浜市青木5-6"],
 ];
 
 function todayISO(): string {
@@ -136,17 +160,45 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
       .run();
   }
 
-  // 5. services
+  // 5. services (with price/options)
   const svcCount = (await env.DB.prepare("SELECT COUNT(*) AS c FROM services WHERE org_id = ?")
     .bind(orgId)
     .first()) as { c: number };
   if (!svcCount.c) {
     const now = Date.now();
-    for (const [name, color, durationMin] of SERVICES) {
+    for (const [name, color, durationMin, price, options] of SERVICES) {
       await env.DB.prepare(
-        "INSERT INTO services (id, org_id, name, description, duration_min, color, active, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?)",
+        "INSERT INTO services (id, org_id, name, description, duration_min, color, price, options, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,1,?,?)",
       )
-        .bind(crypto.randomUUID(), orgId, name, "", durationMin, color, now, now)
+        .bind(
+          crypto.randomUUID(),
+          orgId,
+          name,
+          "",
+          durationMin,
+          color,
+          price,
+          JSON.stringify(options),
+          now,
+          now,
+        )
+        .run();
+    }
+  }
+
+  // 5b. customers
+  const customerCount = (await env.DB.prepare(
+    "SELECT COUNT(*) AS c FROM customers WHERE org_id = ?",
+  )
+    .bind(orgId)
+    .first()) as { c: number };
+  if (!customerCount.c) {
+    const now = Date.now();
+    for (const [name, phone, email, address] of CUSTOMERS) {
+      await env.DB.prepare(
+        "INSERT INTO customers (id, org_id, name, phone, email, address, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      )
+        .bind(crypto.randomUUID(), orgId, name, phone, email, address, "", now, now)
         .run();
     }
   }
@@ -164,9 +216,9 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
       .all()) as any;
     for (const r of rows.results ?? []) serviceIds.set(r.name, r.id);
 
-    const yamada = userIds.get("リーダー")!;
-    const sato = userIds.get("member")!;
-    const tanaka = userIds.get("admin")!;
+    const yamadaId = userIds.get("リーダー")!;
+    const satoId = userIds.get("member")!;
+    const tanakaId = userIds.get("admin")!;
 
     const today = todayISO();
     const tomorrow = tomorrowISO();
@@ -189,7 +241,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         dur: 90,
         status: "assigned",
         notes: "室外機は2階",
-        staff: yamada,
+        staff: yamadaId,
       },
       {
         customer: "佐藤様 戸建",
@@ -199,7 +251,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         dur: 180,
         status: "assigned",
         notes: "2名対応",
-        staff: sato,
+        staff: satoId,
       },
       {
         customer: "青木荘 203",
@@ -209,7 +261,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         dur: 60,
         status: "assigned",
         notes: "",
-        staff: tanaka,
+        staff: tanakaId,
       },
       {
         customer: "しまむら商店",
@@ -229,7 +281,7 @@ export async function ensureDemo(env: Env, auth: Auth): Promise<{ orgId: string 
         dur: 60,
         status: "assigned",
         notes: "",
-        staff: yamada,
+        staff: yamadaId,
       },
       {
         customer: "くらし工房",

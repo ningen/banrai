@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, ListTodo, Users, Sparkles, ShieldCheck } from "lucide-react";
+import { CalendarDays, ListTodo, Users, Sparkles, ShieldCheck, Contact } from "lucide-react";
 import { authClient, useSession } from "./lib/auth-client";
 import { Toaster } from "./components/ui/sonner";
 import { Button } from "./components/ui/button";
@@ -8,12 +8,14 @@ import JobsPage from "./pages/JobsPage";
 import StaffPage from "./pages/StaffPage";
 import ServicesPage from "./pages/ServicesPage";
 import RolesPage from "./pages/RolesPage";
+import CustomersPage from "./pages/CustomersPage";
 
-type Tab = "cal" | "jobs" | "staff" | "services" | "roles";
+type Tab = "cal" | "jobs" | "customers" | "staff" | "services" | "roles";
 
 const NAV: { key: Tab; icon: typeof CalendarDays; label: string }[] = [
   { key: "cal", icon: CalendarDays, label: "スケジュール" },
   { key: "jobs", icon: ListTodo, label: "作業一覧" },
+  { key: "customers", icon: Contact, label: "顧客" },
   { key: "staff", icon: Users, label: "スタッフ" },
   { key: "services", icon: Sparkles, label: "サービス" },
   { key: "roles", icon: ShieldCheck, label: "ロール" },
@@ -315,6 +317,7 @@ function Shell({ userEmail }: { userEmail: string }) {
       <main className="main">
         {tab === "cal" && <CalendarPage />}
         {tab === "jobs" && <JobsPage />}
+        {tab === "customers" && <CustomersPage />}
         {tab === "staff" && <StaffPage />}
         {tab === "services" && <ServicesPage />}
         {tab === "roles" && <RolesPage />}

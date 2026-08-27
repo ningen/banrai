@@ -13,11 +13,32 @@ const serviceSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional()
     .default(""),
+  price: z.number().int().min(0).max(100_000_000).optional().default(0),
+  options: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(60),
+        price: z.number().int().min(0).max(100_000_000),
+      }),
+    )
+    .max(30)
+    .optional()
+    .default([]),
+});
+
+const customerSchema = z.object({
+  name: z.string().min(1).max(100),
+  phone: z.string().max(40).optional().default(""),
+  email: z.string().max(120).optional().default(""),
+  address: z.string().max(300).optional().default(""),
+  notes: z.string().max(1000).optional().default(""),
 });
 
 const jobSchema = z.object({
   serviceId: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable(),
   customerName: z.string().min(1).max(100),
+  phone: z.string().max(40).optional().default(""),
   address: z.string().max(300).optional().default(""),
   scheduledDate: z.string().regex(DATE_RE),
   startMinute: z
@@ -122,9 +143,20 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO services (id, org_id, name, description, duration_min, color, active, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?)",
+      "INSERT INTO services (id, org_id, name, description, duration_min, color, price, options, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,1,?,?)",
     )
-      .bind(id, g.orgId, body.name, body.description, body.durationMin, body.color, now, now)
+      .bind(
+        id,
+        g.orgId,
+        body.name,
+        body.description,
+        body.durationMin,
+        body.color,
+        body.price,
+        JSON.stringify(body.options),
+        now,
+        now,
+      )
       .run();
     return c.json({ id });
   });
@@ -153,6 +185,14 @@ export function createApi(auth: Auth) {
     if (body.color !== undefined)
       await c.env.DB.prepare("UPDATE services SET color = ? WHERE id = ? AND org_id = ?")
         .bind(body.color, id, g.orgId)
+        .run();
+    if (body.price !== undefined)
+      await c.env.DB.prepare("UPDATE services SET price = ? WHERE id = ? AND org_id = ?")
+        .bind(body.price, id, g.orgId)
+        .run();
+    if (body.options !== undefined)
+      await c.env.DB.prepare("UPDATE services SET options = ? WHERE id = ? AND org_id = ?")
+        .bind(JSON.stringify(body.options), id, g.orgId)
         .run();
     await c.env.DB.prepare("UPDATE services SET updated_at = ? WHERE id = ? AND org_id = ?")
       .bind(Date.now(), id, g.orgId)
@@ -240,13 +280,15 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO jobs (id, org_id, service_id, customer_name, address, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO jobs (id, org_id, service_id, customer_id, customer_name, phone, address, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     )
       .bind(
         id,
         g.orgId,
         body.serviceId ?? null,
+        body.customerId ?? null,
         body.customerName,
+        body.phone,
         body.address,
         body.scheduledDate,
         body.startMinute ?? null,
@@ -272,7 +314,9 @@ export function createApi(auth: Auth) {
 
     const fields: Record<string, unknown> = {};
     if (body.serviceId !== undefined) fields.service_id = body.serviceId ?? null;
+    if (body.customerId !== undefined) fields.customer_id = body.customerId ?? null;
     if (body.customerName !== undefined) fields.customer_name = body.customerName;
+    if (body.phone !== undefined) fields.phone = body.phone;
     if (body.address !== undefined) fields.address = body.address;
     if (body.scheduledDate !== undefined) fields.scheduled_date = body.scheduledDate;
     if (body.startMinute !== undefined) fields.start_minute = body.startMinute;
@@ -364,6 +408,85 @@ export function createApi(auth: Auth) {
       headers: c.req.raw.headers,
     });
     return c.json({ invitations: list });
+  });
+
+  api.get("/org-roles", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { ac: ["read"] }))) return c.json({ error: "forbidden" }, 403);
+    const rows = (await c.env.DB.prepare(
+      "SELECT role, permission FROM organizationRole WHERE organizationId = ? ORDER BY createdAt",
+    )
+      .bind(g.orgId)
+      .all()) as any;
+    return c.json({
+      roles: rows.results.map((r: any) => ({
+        role: r.role,
+        permission: JSON.parse(r.permission || "{}"),
+      })),
+    });
+  });
+
+  api.get("/customers", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { customer: ["read"] }))) return c.json({ error: "forbidden" }, 403);
+    const rows = (await c.env.DB.prepare("SELECT * FROM customers WHERE org_id = ? ORDER BY name")
+      .bind(g.orgId)
+      .all()) as any;
+    return c.json({ customers: rows.results });
+  });
+
+  api.post("/customers", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { customer: ["create"] }))) return c.json({ error: "forbidden" }, 403);
+    const body = await parseBody(c, customerSchema);
+    if (body instanceof Response) return body;
+    const now = Date.now();
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(
+      "INSERT INTO customers (id, org_id, name, phone, email, address, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    )
+      .bind(id, g.orgId, body.name, body.phone, body.email, body.address, body.notes, now, now)
+      .run();
+    return c.json({ id });
+  });
+
+  api.patch("/customers/:id", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { customer: ["update"] }))) return c.json({ error: "forbidden" }, 403);
+    const body = await parseBody(c, customerSchema.partial());
+    if (body instanceof Response) return body;
+    const { id } = c.req.param();
+    const fields: Record<string, unknown> = { ...body };
+    const keys = Object.keys(fields);
+    if (keys.length) {
+      const setSql = keys.map((k) => `${k} = ?`).join(", ");
+      await c.env.DB.prepare(
+        `UPDATE customers SET ${setSql}, updated_at = ? WHERE id = ? AND org_id = ?`,
+      )
+        .bind(...keys.map((k) => fields[k] as string | number | null), Date.now(), id, g.orgId)
+        .run();
+    }
+    return c.json({ ok: true });
+  });
+
+  api.delete("/customers/:id", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    if (!(await can(c, { customer: ["delete"] }))) return c.json({ error: "forbidden" }, 403);
+    const { id } = c.req.param();
+    await c.env.DB.prepare(
+      "UPDATE jobs SET customer_id = NULL WHERE customer_id = ? AND org_id = ?",
+    )
+      .bind(id, g.orgId)
+      .run();
+    await c.env.DB.prepare("DELETE FROM customers WHERE id = ? AND org_id = ?")
+      .bind(id, g.orgId)
+      .run();
+    return c.json({ ok: true });
   });
 
   return api;
