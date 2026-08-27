@@ -17,7 +17,13 @@ function splitStatements(sql: string): string[] {
 }
 
 beforeAll(async () => {
-  for (const sql of [authSchemaSql, businessSchemaSql, servicesColorSql, customersSql, statusesSql]) {
+  for (const sql of [
+    authSchemaSql,
+    businessSchemaSql,
+    servicesColorSql,
+    customersSql,
+    statusesSql,
+  ]) {
     for (const statement of splitStatements(sql)) {
       await env.DB.prepare(statement)
         .run()
@@ -143,7 +149,11 @@ describe("banrai worker", () => {
       expect.arrayContaining(["下書き", "割当日", "完了", "キャンセル"]),
     );
 
-    res = await post("/api/statuses", { name: "見積待ち", color: "#2F6B45", done: false }, ownerCookie);
+    res = await post(
+      "/api/statuses",
+      { name: "見積待ち", color: "#2F6B45", done: false },
+      ownerCookie,
+    );
     expect(res.status).toBe(200);
 
     // customer with multiple contacts
@@ -177,9 +187,11 @@ describe("banrai worker", () => {
 
     res = await get("/api/jobs?from=2026-08-01&to=2026-08-31", ownerCookie);
     expect(res.status).toBe(200);
-    const jobsAfter = ((await res.json()) as {
-      jobs: { id: string; status: string; status_color: string }[];
-    }).jobs;
+    const jobsAfter = (
+      (await res.json()) as {
+        jobs: { id: string; status: string; status_color: string }[];
+      }
+    ).jobs;
     const mine = jobsAfter.find((j) => j.id === jobId)!;
     expect(mine.status).toBe("見積待ち");
     expect(mine.status_color).toBe("#2F6B45");

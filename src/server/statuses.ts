@@ -1,9 +1,10 @@
-export const DEFAULT_STATUSES: { name: string; color: string; done: boolean; sortOrder: number }[] = [
-  { name: "下書き", color: "#64748b", done: false, sortOrder: 1 },
-  { name: "割当日", color: "#2753e4", done: false, sortOrder: 2 },
-  { name: "完了", color: "#0e9f6e", done: true, sortOrder: 3 },
-  { name: "キャンセル", color: "#c93f3f", done: false, sortOrder: 4 },
-];
+export const DEFAULT_STATUSES: { name: string; color: string; done: boolean; sortOrder: number }[] =
+  [
+    { name: "下書き", color: "#64748b", done: false, sortOrder: 1 },
+    { name: "割当日", color: "#2753e4", done: false, sortOrder: 2 },
+    { name: "完了", color: "#0e9f6e", done: true, sortOrder: 3 },
+    { name: "キャンセル", color: "#c93f3f", done: false, sortOrder: 4 },
+  ];
 
 export async function ensureDefaultStatuses(env: Env, orgId: string): Promise<void> {
   const row = (await env.DB.prepare("SELECT COUNT(*) AS c FROM job_statuses WHERE org_id = ?")
@@ -20,7 +21,10 @@ export async function ensureDefaultStatuses(env: Env, orgId: string): Promise<vo
   }
 }
 
-export async function listStatuses(env: Env, orgId: string): Promise<{ name: string; color: string; done: boolean }[]> {
+export async function listStatuses(
+  env: Env,
+  orgId: string,
+): Promise<{ name: string; color: string; done: boolean }[]> {
   const rows = (await env.DB.prepare(
     "SELECT name, color, done FROM job_statuses WHERE org_id = ? ORDER BY sort_order, created_at",
   )

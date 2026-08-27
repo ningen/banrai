@@ -47,10 +47,12 @@ const job: Job = {
   address: "東京都千代田区丸の内1-2-3",
   customer_id: null,
   phone: "090-1234-5678",
+  status_color: "#2753e4",
+  status_done: 0,
   scheduled_date: "2026-08-27",
   start_minute: 600,
   duration_min: 90,
-  status: "assigned",
+  status: "割当日",
   notes: "室外機は駐車場側、鍵は管理人に預けた",
   assignments: [{ id: "a1", member_id: "u1" }],
 };
@@ -64,6 +66,11 @@ const meta = {
     job,
     services,
     members,
+    statuses: [
+      { name: "下書き", color: "#64748b", done: false },
+      { name: "割当日", color: "#2753e4", done: false },
+      { name: "完了", color: "#0e9f6e", done: true },
+    ],
     onClose: () => {},
     onChanged: () => {},
   },
@@ -78,7 +85,7 @@ export const UnassignedDraft: Story = {
   args: {
     job: {
       ...job,
-      status: "draft",
+      status: "下書き",
       assignments: [],
       start_minute: null,
       customer_name: "しまむら商店",

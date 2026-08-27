@@ -38,9 +38,24 @@ const SERVICES: [string, string, number, number, { name: string; price: number }
 ];
 
 const CUSTOMERS: { name: string; phones: string[]; emails: string[]; addresses: string[] }[] = [
-  { name: "丸山マンション 303", phones: ["090-1234-5678", "03-1234-5678"], emails: ["maruyama@example.com"], addresses: ["東京都渋谷区丸山1-2-3"] },
-  { name: "佐藤様 戸建", phones: ["080-9876-5432"], emails: ["sato@example.com"], addresses: ["東京都世田谷区宇田川2-3-4"] },
-  { name: "青木荘 203", phones: ["070-1111-2222"], emails: [], addresses: ["神奈川県横浜市青木5-6"] },
+  {
+    name: "丸山マンション 303",
+    phones: ["090-1234-5678", "03-1234-5678"],
+    emails: ["maruyama@example.com"],
+    addresses: ["東京都渋谷区丸山1-2-3"],
+  },
+  {
+    name: "佐藤様 戸建",
+    phones: ["080-9876-5432"],
+    emails: ["sato@example.com"],
+    addresses: ["東京都世田谷区宇田川2-3-4"],
+  },
+  {
+    name: "青木荘 203",
+    phones: ["070-1111-2222"],
+    emails: [],
+    addresses: ["神奈川県横浜市青木5-6"],
+  },
 ];
 
 function todayISO(): string {

@@ -48,8 +48,8 @@ export default function NewJobModal({
     const c = customers.find((x) => x.id === id);
     if (c) {
       setCustomerName(c.name);
-      setPhone(c.phone);
-      setAddress(c.address);
+      if (c.phones.length > 0) setPhone(c.phones[0]!);
+      if (c.addresses.length > 0) setAddress(c.addresses[0]!);
     } else {
       setCustomerId("");
     }
@@ -195,12 +195,50 @@ export default function NewJobModal({
           <div className="space-y-1.5">
             <Label>電話 / 住所</Label>
             <div className="grid grid-cols-2 gap-3">
-              <Input value={phone} placeholder="電話" onChange={(e) => setPhone(e.target.value)} />
-              <Input
-                value={address}
-                placeholder="住所"
-                onChange={(e) => setAddress(e.target.value)}
-              />
+              {customerId && customers.find((c) => c.id === customerId)?.phones.length ? (
+                <Select value={phone} onValueChange={setPhone}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers
+                      .find((c) => c.id === customerId)!
+                      .phones.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={phone}
+                  placeholder="電話"
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              )}
+              {customerId && customers.find((c) => c.id === customerId)?.addresses.length ? (
+                <Select value={address} onValueChange={setAddress}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers
+                      .find((c) => c.id === customerId)!
+                      .addresses.map((a) => (
+                        <SelectItem key={a} value={a}>
+                          {a}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={address}
+                  placeholder="住所"
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              )}
             </div>
           </div>
           <div className="space-y-1.5">

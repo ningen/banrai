@@ -38,7 +38,10 @@ const customerSchema = z.object({
 
 const statusSchema = z.object({
   name: z.string().min(1).max(30),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default("#64748b"),
   done: z.boolean().optional().default(false),
 });
 
@@ -242,7 +245,8 @@ export function createApi(auth: Auth) {
       "SELECT j.*, s.name AS service_name, s.color AS service_color, js.color AS status_color, js.done AS status_done FROM jobs j LEFT JOIN services s ON s.id = j.service_id LEFT JOIN job_statuses js ON js.org_id = j.org_id AND js.name = j.status WHERE j.org_id = ?";
     const binds: string[] = [g.orgId];
     if (q) {
-      sql += " AND (j.customer_name LIKE ? OR j.address LIKE ? OR j.phone LIKE ? OR j.notes LIKE ?)";
+      sql +=
+        " AND (j.customer_name LIKE ? OR j.address LIKE ? OR j.phone LIKE ? OR j.notes LIKE ?)";
       const like = `%${q}%`;
       binds.push(like, like, like, like);
       sql += " ORDER BY j.scheduled_date DESC, j.start_minute LIMIT 200";
@@ -348,9 +352,7 @@ export function createApi(auth: Auth) {
     if (body.durationMin !== undefined) fields.duration_min = body.durationMin;
     if (body.notes !== undefined) fields.notes = body.notes;
     if (body.status !== undefined) {
-      const st = await c.env.DB.prepare(
-        "SELECT id FROM job_statuses WHERE org_id = ? AND name = ?",
-      )
+      const st = await c.env.DB.prepare("SELECT id FROM job_statuses WHERE org_id = ? AND name = ?")
         .bind(g.orgId, body.status)
         .first();
       if (!st) return c.json({ error: "unknown_status" }, 400);
@@ -468,7 +470,8 @@ export function createApi(auth: Auth) {
     let sql = "SELECT * FROM customers WHERE org_id = ?";
     const binds: string[] = [g.orgId];
     if (q) {
-      sql += " AND (name LIKE ? OR phones LIKE ? OR emails LIKE ? OR addresses LIKE ? OR notes LIKE ?)";
+      sql +=
+        " AND (name LIKE ? OR phones LIKE ? OR emails LIKE ? OR addresses LIKE ? OR notes LIKE ?)";
       const like = `%${q}%`;
       binds.push(like, like, like, like, like);
     }

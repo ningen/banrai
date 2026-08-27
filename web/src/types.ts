@@ -13,10 +13,16 @@ export type Service = {
 export type Customer = {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  address: string;
+  phones: string[];
+  emails: string[];
+  addresses: string[];
   notes: string;
+};
+
+export type JobStatus = {
+  name: string;
+  color: string;
+  done: boolean;
 };
 
 export type Member = {
@@ -39,7 +45,9 @@ export type Job = {
   scheduled_date: string;
   start_minute: number | null;
   duration_min: number;
-  status: "draft" | "assigned" | "done" | "cancelled";
+  status: string;
+  status_color: string | null;
+  status_done: number | null;
   notes: string;
   assignments: Assignment[];
 };

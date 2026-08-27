@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Job, Member, Service } from "../types";
+import type { Job, JobStatus, Member, Service } from "../types";
 import { fmtMin } from "../date";
 import { StatusChip } from "./bits";
 import { api } from "../api";
@@ -15,19 +15,12 @@ type Props = {
   job: Job;
   services: Service[];
   members: Member[];
+  statuses: JobStatus[];
   onClose: () => void;
   onChanged: () => void;
 };
 
-const STATUS_ORDER: Job["status"][] = ["draft", "assigned", "done", "cancelled"];
-const STATUS_JP: Record<Job["status"], string> = {
-  draft: "下書き",
-  assigned: "割当日",
-  done: "完了",
-  cancelled: "キャンセル",
-};
-
-export default function JobDrawer({ job, services, members, onClose, onChanged }: Props) {
+export default function JobDrawer({ job, services, members, statuses, onClose, onChanged }: Props) {
   const [busy, setBusy] = useState(false);
 
   const patch = async (data: Record<string, unknown>, message?: string) => {
@@ -78,7 +71,7 @@ export default function JobDrawer({ job, services, members, onClose, onChanged }
       <SheetContent className="w-[440px]">
         <SheetHeader className="pr-8">
           <SheetTitle className="flex items-center gap-2">
-            {job.customer_name} <StatusChip status={job.status} />
+            {job.customer_name} <StatusChip label={job.status} color={job.status_color} />
           </SheetTitle>
           <SheetDescription>
             {job.service_name ?? "サービス未設定"} ・ {fmtMin(job.start_minute) || "時間未定"}〜 ・{" "}
@@ -203,19 +196,25 @@ export default function JobDrawer({ job, services, members, onClose, onChanged }
 
           <div className="space-y-1.5 pt-2">
             <Label>状態</Label>
-            <div className="flex gap-1.5 flex-wrap">
-              {STATUS_ORDER.map((s) => (
-                <Button
-                  key={s}
-                  size="sm"
-                  variant={job.status === s ? "default" : "outline"}
-                  disabled={busy}
-                  onClick={() => patch({ status: s }, `状態を「${STATUS_JP[s]}」に変更しました`)}
-                >
-                  {STATUS_JP[s]}
-                </Button>
-              ))}
-            </div>
+            <Select
+              value={job.status}
+              onValueChange={(v) => patch({ status: v }, `状態を「${v}」に変更しました`)}
+              disabled={busy}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s.name} value={s.name}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span className="size-2 rounded-full" style={{ background: s.color }} />
+                      {s.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </SheetContent>

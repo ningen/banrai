@@ -20,7 +20,6 @@ type Block = {
 
 function layoutBlocks(jobs: Job[]): Block[] {
   const blocks = jobs
-    .filter((j) => j.status !== "cancelled")
     .map((job) => {
       const start = job.start_minute ?? 540;
       const end = Math.min(DAY_END, start + Math.max(job.duration_min, 30));
@@ -140,7 +139,7 @@ export default function DaySchedule({ dateISO, jobs, members, onSelectJob, onCre
                   onSelectJob(blk.job);
                 }}
               >
-                <div className={"job-inner" + (blk.job.status === "done" ? " done" : "")}>
+                <div className={"job-inner" + (blk.job.status_done ? " done" : "")}>
                   <b>{blk.job.customer_name}</b>
                   <span className="tm">
                     {fmtMin(blk.job.start_minute) || "未定"}

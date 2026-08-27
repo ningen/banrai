@@ -1,24 +1,17 @@
-import type { Job } from "../types";
 import { Badge } from "./ui/badge";
 
-const STATUS_LABEL: Record<Job["status"], string> = {
-  draft: "下書き",
-  assigned: "割当日",
-  done: "完了",
-  cancelled: "キャンセル",
-};
-
-const STATUS_CLASS: Record<Job["status"], string> = {
-  draft: "bg-[var(--surface-2)] text-[var(--muted)] border-[var(--line-strong)]",
-  assigned: "bg-[var(--indigo-10)] text-[var(--indigo)] border-[var(--indigo-20)]",
-  done: "bg-[var(--done-soft)] text-[var(--done)] border-transparent",
-  cancelled: "bg-[var(--danger-soft)] text-[var(--danger)] border-transparent",
-};
-
-export function StatusChip({ status }: { status: Job["status"] }) {
+export function StatusChip({ label, color }: { label: string; color?: string | null }) {
   return (
-    <Badge variant="outline" className={STATUS_CLASS[status]}>
-      {STATUS_LABEL[status]}
+    <Badge
+      variant="outline"
+      className="gap-1.5 bg-background"
+      style={{
+        borderColor: color ? `${color}55` : "var(--line-strong)",
+        color: color ?? "var(--muted)",
+      }}
+    >
+      <span className="size-2 rounded-full" style={{ background: color ?? "#8a8a85" }} />
+      {label}
     </Badge>
   );
 }
