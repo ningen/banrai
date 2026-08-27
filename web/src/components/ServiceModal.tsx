@@ -3,7 +3,7 @@ import type { Service, ServiceOption } from "../types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { DurationSelect } from "./TimeSelect";
 import {
   Dialog,
   DialogContent,
@@ -84,9 +84,6 @@ export default function ServiceModal({ initial, onClose, onSave }: Props) {
   const [options, setOptions] = useState<ServiceOption[]>(initial?.options ?? []);
   const [busy, setBusy] = useState(false);
 
-  const hours = Math.floor(durationMin / 60);
-  const mins = durationMin % 60;
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -94,7 +91,7 @@ export default function ServiceModal({ initial, onClose, onSave }: Props) {
       await onSave({
         name,
         description,
-        duration_min: hours * 60 + mins,
+        duration_min: durationMin,
         color,
         price,
         options: options.filter((o) => o.name.trim() !== ""),
@@ -110,7 +107,7 @@ export default function ServiceModal({ initial, onClose, onSave }: Props) {
         <DialogHeader>
           <DialogTitle>{initial ? "サービスを編集" : "サービスを追加"}</DialogTitle>
           <DialogDescription>
-            所要時間は「時間 + 分」、オプションは任意で追加できます。
+            所要時間は30分刻み (最大12時間)、オプションは任意で追加できます。
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
@@ -128,42 +125,10 @@ export default function ServiceModal({ initial, onClose, onSave }: Props) {
             <Label>説明 (任意)</Label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>時間</Label>
-              <Select
-                value={String(hours)}
-                onValueChange={(v) => setDurationMin(Number(v) * 60 + mins)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((h) => (
-                    <SelectItem key={h} value={String(h)}>
-                      {h}時間
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>分</Label>
-              <Select
-                value={String(mins)}
-                onValueChange={(v) => setDurationMin(hours * 60 + Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[0, 15, 30, 45].map((m) => (
-                    <SelectItem key={m} value={String(m)}>
-                      {m}分
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>所要時間</Label>
+              <DurationSelect value={durationMin} onValueChange={setDurationMin} />
             </div>
             <div className="space-y-1.5">
               <Label>基本料金 (円)</Label>

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Check, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { authClient } from "../lib/auth-client";
 import { api } from "../api";
 import type { Job, JobStatus, Member, Service } from "../types";
@@ -10,6 +20,7 @@ import JobDrawer from "../components/JobDrawer";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +28,154 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const STATUS_COLORS = ["#64748b", "#2753e4", "#0e9f6e", "#c93f3f", "#2F6B45", "#A6402A", "#8A6BE0"];
+
+function KanbanCard({
+  job,
+  members,
+  statuses,
+  onOpen,
+  onMove,
+}: {
+  job: Job;
+  members: Member[];
+  statuses: JobStatus[];
+  onOpen: () => void;
+  onMove: (status: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: job.id,
+    data: { job },
+  });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={cn("kanban-card", job.status_done && "dim")}
+      onClick={onOpen}
+    >
+      <div className="flex items-start gap-1">
+        <div className="flex-1 min-w-0">
+          <div className="kanban-time num">
+            {parseISO(job.scheduled_date).getMonth() + 1}/{parseISO(job.scheduled_date).getDate()}（
+            {["日", "月", "火", "水", "木", "金", "土"][parseISO(job.scheduled_date).getDay()]}）{" "}
+            {fmtMin(job.start_minute) || "時間未定"}
+          </div>
+          <div className="kanban-customer">{job.customer_name}</div>
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0 -mr-1 -mt-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="size-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-44 p-1" align="end">
+            {statuses.map((s) => (
+              <button
+                key={s.name}
+                type="button"
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] hover:bg-accent"
+                onClick={() => {
+                  onMove(s.name);
+                }}
+              >
+                <span className="size-2 rounded-full" style={{ background: s.color }} />
+                <span className="flex-1">{s.name}</span>
+                {job.status === s.name && <Check className="size-3.5 text-primary" />}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <SvcChip name={job.service_name} color={job.service_color} />
+        {job.phone && (
+          <span className="num muted" style={{ fontSize: 11.5 }}>
+            {job.phone}
+          </span>
+        )}
+      </div>
+      {job.assignments.length > 0 && (
+        <div className="muted" style={{ fontSize: 12 }}>
+          {job.assignments
+            .map((a) => members.find((m) => m.user.id === a.member_id)?.user.name)
+            .join("・")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KanbanColumn({
+  status,
+  jobs,
+  members,
+  statuses,
+  onOpenJob,
+  onMove,
+  onDelete,
+}: {
+  status: JobStatus;
+  jobs: Job[];
+  members: Member[];
+  statuses: JobStatus[];
+  onOpenJob: (job: Job) => void;
+  onMove: (jobId: string, status: string) => void;
+  onDelete: (status: JobStatus) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: status.name });
+  const deletable = !["下書き", "割当日", "完了", "キャンセル"].includes(status.name);
+
+  return (
+    <div ref={setNodeRef} className={cn("kanban-col", isOver && "ring-2 ring-primary/60")}>
+      <div className="kanban-head">
+        <span className="svc-dot" style={{ background: status.color }} />
+        <b>{status.name}</b>
+        <span className="num text-muted" style={{ fontSize: 12 }}>
+          {jobs.length}
+        </span>
+        <span style={{ marginLeft: "auto" }}>
+          {deletable && (
+            <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => onDelete(status)}>
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
+        </span>
+      </div>
+      <div className="kanban-body">
+        {jobs.map((j) => (
+          <KanbanCard
+            key={j.id}
+            job={j}
+            members={members}
+            statuses={statuses}
+            onOpen={() => onOpenJob(j)}
+            onMove={(s) => onMove(j.id, s)}
+          />
+        ))}
+        {jobs.length === 0 && (
+          <div className="muted" style={{ fontSize: 12, padding: "6px 2px" }}>
+            なし
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -28,7 +185,10 @@ export default function JobsPage() {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Job | null>(null);
   const [addStatusOpen, setAddStatusOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const load = useCallback(
     async (query?: string) => {
@@ -83,14 +243,30 @@ export default function JobsPage() {
     return map;
   }, [jobs, statuses]);
 
-  const moveStatus = async (jobId: string, status: string) => {
-    try {
-      await api(`/api/jobs/${jobId}`, { method: "PATCH", body: JSON.stringify({ status }) });
-      await load();
-    } catch (err) {
-      toast.error(String((err as Error).message));
-    }
-  };
+  const moveStatus = useCallback(
+    async (jobId: string, status: string) => {
+      if (!status) return;
+      try {
+        await api(`/api/jobs/${jobId}`, { method: "PATCH", body: JSON.stringify({ status }) });
+        await load();
+      } catch (err) {
+        toast.error(String((err as Error).message));
+      }
+    },
+    [load],
+  );
+
+  const onDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+      const status = String(over.id);
+      if (status && statuses.some((s) => s.name === status)) {
+        void moveStatus(String(active.id), status);
+      }
+    },
+    [moveStatus, statuses],
+  );
 
   const addStatus = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -110,14 +286,16 @@ export default function JobsPage() {
     }
   };
 
-  const deleteStatus = async (s: JobStatus) => {
-    if (!confirm(`ステータス「${s.name}」を削除しますか?`)) return;
+  const confirmDeleteStatus = async () => {
+    if (!deleteTarget) return;
     try {
-      await api(`/api/statuses/${encodeURIComponent(s.name)}`, { method: "DELETE" });
+      await api(`/api/statuses/${encodeURIComponent(deleteTarget.name)}`, { method: "DELETE" });
       toast.success("削除しました");
+      setDeleteTarget(null);
       await load();
     } catch (err) {
       toast.error(String((err as Error).message));
+      setDeleteTarget(null);
     }
   };
 
@@ -127,7 +305,7 @@ export default function JobsPage() {
         <div>
           <h2>作業一覧 (カンバン)</h2>
           <div className="sub">
-            カードをドラッグ&ドロップでステータスを変更。検索は全期間対象です。
+            カードをドラッグして移動、または「⋯」からステータスを選択。検索は全期間対象です。
           </div>
         </div>
         <Button onClick={() => setAddStatusOpen(true)}>
@@ -148,96 +326,31 @@ export default function JobsPage() {
 
       {error && <p className="error">{error}</p>}
 
-      <div
-        className="card"
-        style={{
-          padding: 12,
-          display: "flex",
-          gap: 10,
-          overflowX: "auto",
-          alignItems: "flex-start",
-        }}
-      >
-        {statuses.map((s) => {
-          const list = byStatus.get(s.name) ?? [];
-          return (
-            <div
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <div
+          className="card"
+          style={{
+            padding: 12,
+            display: "flex",
+            gap: 10,
+            overflowX: "auto",
+            alignItems: "flex-start",
+          }}
+        >
+          {statuses.map((s) => (
+            <KanbanColumn
               key={s.name}
-              className="kanban-col"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                const id = e.dataTransfer.getData("text/plain");
-                if (id) void moveStatus(id, s.name);
-              }}
-            >
-              <div className="kanban-head">
-                <span className="svc-dot" style={{ background: s.color }} />
-                <b>{s.name}</b>
-                <span className="num text-muted" style={{ fontSize: 12 }}>
-                  {list.length}
-                </span>
-                <span style={{ marginLeft: "auto" }}>
-                  {!["下書き", "割当日", "完了", "キャンセル"].includes(s.name) && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-1"
-                      onClick={() => deleteStatus(s)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  )}
-                </span>
-              </div>
-              <div className="kanban-body">
-                {list.map((j) => (
-                  <div
-                    key={j.id}
-                    className={`kanban-card ${j.status_done ? "dim" : ""}`}
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData("text/plain", j.id)}
-                    onClick={() => setSelected(j)}
-                  >
-                    <div className="kanban-time num">
-                      {parseISO(j.scheduled_date).getMonth() + 1}/
-                      {parseISO(j.scheduled_date).getDate()}（
-                      {
-                        ["日", "月", "火", "水", "木", "金", "土"][
-                          parseISO(j.scheduled_date).getDay()
-                        ]
-                      }
-                      ） {fmtMin(j.start_minute) || "時間未定"}
-                    </div>
-                    <div className="kanban-customer">{j.customer_name}</div>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}
-                    >
-                      <SvcChip name={j.service_name} color={j.service_color} />
-                      {j.phone && (
-                        <span className="num muted" style={{ fontSize: 11.5 }}>
-                          {j.phone}
-                        </span>
-                      )}
-                    </div>
-                    {j.assignments.length > 0 && (
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {j.assignments
-                          .map((a) => members.find((m) => m.user.id === a.member_id)?.user.name)
-                          .join("・")}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {list.length === 0 && (
-                  <div className="muted" style={{ fontSize: 12, padding: "6px 2px" }}>
-                    なし
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              status={s}
+              jobs={byStatus.get(s.name) ?? []}
+              members={members}
+              statuses={statuses}
+              onOpenJob={setSelected}
+              onMove={(jobId, next) => void moveStatus(jobId, next)}
+              onDelete={(st) => setDeleteTarget(st)}
+            />
+          ))}
+        </div>
+      </DndContext>
 
       {selected && (
         <JobDrawer
@@ -291,6 +404,25 @@ export default function JobsPage() {
               <Button type="submit">作成</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>ステータス「{deleteTarget?.name}」を削除</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            削除しますか? 使用中の作業がある場合は削除できません (キャンセル扱いの作業は除く)。
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              キャンセル
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDeleteStatus()}>
+              削除
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

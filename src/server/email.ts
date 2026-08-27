@@ -33,7 +33,7 @@ export async function sendMail(env: Env, to: string, subject: string, html: stri
 export const sendVerificationEmail =
   (env: Env) =>
   async ({ user, url }: { user: { email: string }; url: string }) => {
-    if (user.email.endsWith("banrai.test")) {
+    if (user.email.endsWith("@example.com")) {
       console.log(`[mail:skip] demo user, verify email not sent: ${user.email}`);
       return;
     }

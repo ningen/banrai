@@ -2,7 +2,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Customer, Member, Service } from "../types";
 import { api } from "../api";
-import { todayISO, fmtMin } from "../date";
+import { todayISO } from "../date";
+import { DurationSelect, TimeSelect } from "./TimeSelect";
+import DatePicker from "./DatePicker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -168,28 +170,15 @@ export default function NewJobModal({
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>日付</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DatePicker value={date} onChange={setDate} />
             </div>
             <div className="space-y-1.5">
               <Label>開始時刻</Label>
-              <Input
-                type="time"
-                value={fmtMin(startMinute)}
-                onChange={(e) => {
-                  const [h, m] = e.target.value.split(":").map(Number);
-                  setStartMinute((Number.isNaN(h) ? 9 : h) * 60 + (Number.isNaN(m) ? 0 : m));
-                }}
-              />
+              <TimeSelect value={startMinute} onValueChange={setStartMinute} />
             </div>
             <div className="space-y-1.5">
-              <Label>所要 (分)</Label>
-              <Input
-                type="number"
-                min={15}
-                step={15}
-                value={durationMin}
-                onChange={(e) => setDurationMin(Number(e.target.value))}
-              />
+              <Label>所要時間</Label>
+              <DurationSelect value={durationMin} onValueChange={setDurationMin} />
             </div>
           </div>
           <div className="space-y-1.5">

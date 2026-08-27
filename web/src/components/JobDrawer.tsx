@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Job, JobStatus, Member, Service } from "../types";
 import { fmtMin } from "../date";
+import { DurationSelect, TimeSelect } from "./TimeSelect";
+import DatePicker from "./DatePicker";
 import { StatusChip } from "./bits";
 import { api } from "../api";
 import { Button } from "./ui/button";
@@ -103,31 +105,23 @@ export default function JobDrawer({ job, services, members, statuses, onClose, o
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>日付</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={job.scheduled_date}
-                onChange={(e) => patch({ scheduledDate: e.target.value })}
+                onChange={(iso) => void patch({ scheduledDate: iso })}
               />
             </div>
             <div className="space-y-1.5">
               <Label>開始時刻</Label>
-              <Input
-                type="time"
-                defaultValue={fmtMin(job.start_minute)}
-                onBlur={(e) => {
-                  const [h, m] = e.target.value.split(":").map(Number);
-                  if (!Number.isNaN(h)) void patch({ startMinute: h * 60 + (m || 0) });
-                }}
+              <TimeSelect
+                value={job.start_minute}
+                onValueChange={(m) => void patch({ startMinute: m })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>所要 (分)</Label>
-              <Input
-                type="number"
-                min={15}
-                step={15}
+              <Label>所要時間</Label>
+              <DurationSelect
                 value={job.duration_min}
-                onChange={(e) => patch({ durationMin: Number(e.target.value) })}
+                onValueChange={(m) => void patch({ durationMin: m })}
               />
             </div>
           </div>

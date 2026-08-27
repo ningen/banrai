@@ -1,14 +1,14 @@
 import type { Auth } from "./auth";
 import { ensureDefaultStatuses } from "./statuses";
 
-const DEMO_EMAIL = "demo@banrai.test";
+const DEMO_EMAIL = "demo@example.com";
 const DEMO_PASSWORD = "Demopass123!";
 
 const DEMO_USERS = [
   { email: DEMO_EMAIL, name: "デモ事業主", role: "owner" },
-  { email: "yamada@demo.banrai.test", name: "山田 健", role: "リーダー" },
-  { email: "sato@demo.banrai.test", name: "佐藤 あきら", role: "member" },
-  { email: "tanaka@demo.banrai.test", name: "田中 千尋", role: "admin" },
+  { email: "yamada@example.com", name: "山田 健", role: "リーダー" },
+  { email: "sato@example.com", name: "佐藤 あきら", role: "member" },
+  { email: "tanaka@example.com", name: "田中 千尋", role: "admin" },
 ];
 
 const ORG = { name: "デモ清掃サービス", slug: "demo-clean" };
