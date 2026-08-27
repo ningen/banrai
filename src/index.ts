@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { createAuth, type Auth } from "./server/auth";
 import { createApi } from "./server/routes";
-import type { Env } from "./server/types";
 
 let cached: { env: Env; auth: Auth } | null = null;
 
@@ -17,9 +16,7 @@ function buildApp(env: Env) {
   const auth = getAuth(env);
   const api = createApi(auth);
 
-  app.on(["GET", "POST", "PUT", "PATCH", "DELETE"], "/api/auth/*", (c) =>
-    auth.handler(c.req.raw)
-  );
+  app.on(["GET", "POST", "PUT", "PATCH", "DELETE"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
   app.route("/api", api);
   app.get("/healthz", (c) => c.text("ok"));

@@ -2,7 +2,6 @@ import type { BetterAuthOptions } from "better-auth";
 import { admin, organization } from "better-auth/plugins";
 import { ac, roles } from "../shared/permissions";
 import { sendInvitationEmail, sendResetPasswordEmail, sendVerificationEmail } from "./email";
-import type { Env } from "./types";
 
 export function buildAuthPlugins(env: Env) {
   return [
@@ -16,7 +15,9 @@ export function buildAuthPlugins(env: Env) {
   ];
 }
 
-export function buildEmailConfig(env: Env): Pick<BetterAuthOptions, "emailAndPassword" | "emailVerification"> {
+export function buildEmailConfig(
+  env: Env,
+): Pick<BetterAuthOptions, "emailAndPassword" | "emailVerification"> {
   return {
     emailAndPassword: {
       enabled: true,

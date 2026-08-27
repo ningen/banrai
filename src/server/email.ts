@@ -1,5 +1,3 @@
-import type { Env } from "./types";
-
 function emailTemplate(title: string, lines: string[], link?: { label: string; href: string }) {
   return `<!doctype html>
 <html>
@@ -12,12 +10,7 @@ function emailTemplate(title: string, lines: string[], link?: { label: string; h
 </html>`;
 }
 
-export async function sendMail(
-  env: Env,
-  to: string,
-  subject: string,
-  html: string
-): Promise<void> {
+export async function sendMail(env: Env, to: string, subject: string, html: string): Promise<void> {
   const from = env.EMAIL_FROM;
   if (!from) {
     console.log(`[mail:skip] no EMAIL_FROM configured: to=${to} subject=${subject}`);
@@ -44,7 +37,10 @@ export const sendVerificationEmail =
       env,
       user.email,
       "Verify your email",
-      emailTemplate("Verify your email", ["Click the link below to verify your email address."], { label: "Verify", href: url })
+      emailTemplate("Verify your email", ["Click the link below to verify your email address."], {
+        label: "Verify",
+        href: url,
+      }),
     );
   };
 
@@ -55,7 +51,10 @@ export const sendResetPasswordEmail =
       env,
       user.email,
       "Reset your password",
-      emailTemplate("Reset your password", ["Click the link below to reset your password."], { label: "Reset password", href: url })
+      emailTemplate("Reset your password", ["Click the link below to reset your password."], {
+        label: "Reset password",
+        href: url,
+      }),
     );
   };
 
@@ -83,7 +82,7 @@ export const sendInvitationEmail =
           `${inviter.user.name} invited you to join "${organization.name}" on banrai.`,
           "Accept the invitation to set your password and join the organization.",
         ],
-        { label: "Accept invitation", href: link }
-      )
+        { label: "Accept invitation", href: link },
+      ),
     );
   };

@@ -34,7 +34,8 @@ function defaultValueSql(field) {
     if (field.defaultValue === undefined) return null;
     if (typeof field.defaultValue === "boolean") return field.defaultValue ? "1" : "0";
     if (typeof field.defaultValue === "number") return String(field.defaultValue);
-    if (typeof field.defaultValue === "string") return `'${field.defaultValue.replaceAll("'", "''")}'`;
+    if (typeof field.defaultValue === "string")
+      return `'${field.defaultValue.replaceAll("'", "''")}'`;
   }
   return null;
 }
@@ -48,9 +49,7 @@ const lines = [
   "-- Regenerate after changing src/server/auth config or upgrading better-auth.",
 ];
 
-const tables = Object.entries(schema).sort(
-  (a, b) => (a[1].order ?? 999) - (b[1].order ?? 999)
-);
+const tables = Object.entries(schema).toSorted((a, b) => (a[1].order ?? 999) - (b[1].order ?? 999));
 
 for (const [tableName, table] of tables) {
   const cols = [`${quote("id")} text primary key not null`];
@@ -64,7 +63,10 @@ for (const [tableName, table] of tables) {
       const { model, field: refField = "id" } = field.references;
       const onDelete = field.references.onDelete || "cascade";
       definition.push(
-        `references "${model}"("${refField}") ${onDelete === "noAction" ? "" : `on delete ${onDelete}`}`.replace(/\s+/g, " ")
+        `references "${model}"("${refField}") ${onDelete === "noAction" ? "" : `on delete ${onDelete}`}`.replace(
+          /\s+/g,
+          " ",
+        ),
       );
     }
     cols.push(definition.join(" "));
@@ -76,7 +78,7 @@ for (const [tableName, table] of tables) {
     if (field.index && !field.unique) {
       const colName = field.fieldName || fieldName;
       lines.push(
-        `create index "${tableName}_${colName}_idx" on ${quote(tableName)} (${quote(colName)});`
+        `create index "${tableName}_${colName}_idx" on ${quote(tableName)} (${quote(colName)});`,
       );
     }
   }
@@ -84,11 +86,14 @@ for (const [tableName, table] of tables) {
   for (const idx of table.indexes || []) {
     const colsSql = idx.columns.map((c) => quote(c)).join(", ");
     lines.push(
-      `create ${idx.unique ? "unique " : ""}index ${quote(idx.name)} on ${quote(tableName)} (${colsSql});`
+      `create ${idx.unique ? "unique " : ""}index ${quote(idx.name)} on ${quote(tableName)} (${colsSql});`,
     );
   }
 }
 
 import { writeFileSync } from "node:fs";
-writeFileSync(new URL("../migrations/0000_auth_schema.sql", import.meta.url), lines.join("\n") + "\n");
+writeFileSync(
+  new URL("../migrations/0000_auth_schema.sql", import.meta.url),
+  lines.join("\n") + "\n",
+);
 console.log(`Wrote migrations/0000_auth_schema.sql (${tables.length} tables)`);

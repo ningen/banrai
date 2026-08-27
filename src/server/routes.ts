@@ -1,7 +1,6 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import type { Auth } from "./auth";
-import type { Env } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,7 +15,13 @@ const jobSchema = z.object({
   customerName: z.string().min(1).max(100),
   address: z.string().max(300).optional().default(""),
   scheduledDate: z.string().regex(DATE_RE),
-  startMinute: z.number().int().min(0).max(23 * 60).optional().nullable(),
+  startMinute: z
+    .number()
+    .int()
+    .min(0)
+    .max(23 * 60)
+    .optional()
+    .nullable(),
   durationMin: z.number().int().min(15).max(720).optional().default(60),
   notes: z.string().max(1000).optional().default(""),
 });
@@ -26,7 +31,16 @@ const assignSchema = z.object({
 });
 
 type Ctx = Context<{ Bindings: Env }>;
-type Guarded = { session: NonNullable<Awaited<ReturnType<Auth["api"]["getSession"]>>>; orgId: string };
+type Guarded = {
+  session: NonNullable<Awaited<ReturnType<Auth["api"]["getSession"]>>>;
+  orgId: string;
+};
+
+async function parseBody<T>(c: Ctx, schema: z.ZodType<T>): Promise<T | Response> {
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_input", issues: parsed.error.issues }, 400);
+  return parsed.data;
+}
 
 export function createApi(auth: Auth) {
   const api = new Hono<{ Bindings: Env }>();
@@ -34,7 +48,8 @@ export function createApi(auth: Auth) {
   async function guard(c: Ctx): Promise<Guarded | Response> {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return c.json({ error: "unauthorized" }, 401);
-    const orgId = (session.session as { activeOrganizationId?: string | null }).activeOrganizationId;
+    const orgId = (session.session as { activeOrganizationId?: string | null })
+      .activeOrganizationId;
     if (!orgId) return c.json({ error: "no_active_organization" }, 409);
     return { session, orgId };
   }
@@ -47,19 +62,13 @@ export function createApi(auth: Auth) {
     return result.success;
   }
 
-  async function parseBody<T>(c: Ctx, schema: z.ZodType<T>): Promise<T | Response> {
-    const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success) return c.json({ error: "invalid_input", issues: parsed.error.issues }, 400);
-    return parsed.data;
-  }
-
   api.get("/services", async (c) => {
     const g = await guard(c);
     if (g instanceof Response) return g;
     if (!(await can(c, { service: ["read"] }))) return c.json({ error: "forbidden" }, 403);
 
     const rows = (await c.env.DB.prepare(
-      "SELECT * FROM services WHERE org_id = ? AND active = 1 ORDER BY created_at"
+      "SELECT * FROM services WHERE org_id = ? AND active = 1 ORDER BY created_at",
     )
       .bind(g.orgId)
       .all()) as any;
@@ -77,7 +86,7 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO services (id, org_id, name, description, duration_min, active, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?)"
+      "INSERT INTO services (id, org_id, name, description, duration_min, active, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?)",
     )
       .bind(id, g.orgId, body.name, body.description, body.durationMin, now, now)
       .run();
@@ -144,7 +153,9 @@ export function createApi(auth: Auth) {
     }
     sql += " ORDER BY j.scheduled_date, j.start_minute";
 
-    const rows = (await c.env.DB.prepare(sql).bind(...binds).all()) as any;
+    const rows = (await c.env.DB.prepare(sql)
+      .bind(...binds)
+      .all()) as any;
 
     const jobIds = rows.results.map((j: any) => j.id);
     const allAssignments = jobIds.length
@@ -152,7 +163,7 @@ export function createApi(auth: Auth) {
           await c.env.DB.prepare(
             "SELECT * FROM job_assignments WHERE org_id = ? AND job_id IN (" +
               jobIds.map(() => "?").join(",") +
-              ")"
+              ")",
           )
             .bind(g.orgId, ...jobIds)
             .all()
@@ -161,7 +172,9 @@ export function createApi(auth: Auth) {
 
     let jobs = rows.results;
     if (memberId) {
-      const memberJobIds = new Set(allAssignments.filter((a: any) => a.member_id === memberId).map((a: any) => a.job_id));
+      const memberJobIds = new Set(
+        allAssignments.filter((a: any) => a.member_id === memberId).map((a: any) => a.job_id),
+      );
       jobs = jobs.filter((j: any) => memberJobIds.has(j.id));
     }
 
@@ -171,7 +184,9 @@ export function createApi(auth: Auth) {
       list.push(a);
       assignmentsByJob.set(a.job_id, list);
     }
-    return c.json({ jobs: jobs.map((j: any) => ({ ...j, assignments: assignmentsByJob.get(j.id) ?? [] })) });
+    return c.json({
+      jobs: jobs.map((j: any) => ({ ...j, assignments: assignmentsByJob.get(j.id) ?? [] })),
+    });
   });
 
   api.post("/jobs", async (c) => {
@@ -185,7 +200,7 @@ export function createApi(auth: Auth) {
     const now = Date.now();
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO jobs (id, org_id, service_id, customer_name, address, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
+      "INSERT INTO jobs (id, org_id, service_id, customer_name, address, scheduled_date, start_minute, duration_min, status, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
     )
       .bind(
         id,
@@ -200,7 +215,7 @@ export function createApi(auth: Auth) {
         body.notes,
         g.session.user.id,
         now,
-        now
+        now,
       )
       .run();
     return c.json({ id });
@@ -227,7 +242,9 @@ export function createApi(auth: Auth) {
     const keys = Object.keys(fields);
     if (keys.length) {
       const setSql = keys.map((k) => `${k} = ?`).join(", ");
-      await c.env.DB.prepare(`UPDATE jobs SET ${setSql}, updated_at = ? WHERE id = ? AND org_id = ?`)
+      await c.env.DB.prepare(
+        `UPDATE jobs SET ${setSql}, updated_at = ? WHERE id = ? AND org_id = ?`,
+      )
         .bind(...keys.map((k) => fields[k] as string | number | null), Date.now(), id, g.orgId)
         .run();
     }
@@ -239,7 +256,9 @@ export function createApi(auth: Auth) {
     if (g instanceof Response) return g;
     if (!(await can(c, { job: ["delete"] }))) return c.json({ error: "forbidden" }, 403);
     const { id } = c.req.param();
-    await c.env.DB.prepare("UPDATE jobs SET status = 'cancelled', updated_at = ? WHERE id = ? AND org_id = ?")
+    await c.env.DB.prepare(
+      "UPDATE jobs SET status = 'cancelled', updated_at = ? WHERE id = ? AND org_id = ?",
+    )
       .bind(Date.now(), id, g.orgId)
       .run();
     return c.json({ ok: true });
@@ -260,14 +279,14 @@ export function createApi(auth: Auth) {
     if (!job) return c.json({ error: "not_found" }, 404);
 
     const member = (await c.env.DB.prepare(
-      "SELECT userId FROM member WHERE organizationId = ? AND userId = ?"
+      "SELECT userId FROM member WHERE organizationId = ? AND userId = ?",
     )
       .bind(g.orgId, body.memberId)
       .first()) as any;
     if (!member) return c.json({ error: "member_not_found" }, 404);
 
     await c.env.DB.prepare(
-      "INSERT OR IGNORE INTO job_assignments (id, org_id, job_id, member_id, created_at) VALUES (?,?,?,?,?)"
+      "INSERT OR IGNORE INTO job_assignments (id, org_id, job_id, member_id, created_at) VALUES (?,?,?,?,?)",
     )
       .bind(crypto.randomUUID(), g.orgId, id, body.memberId, Date.now())
       .run();
@@ -283,12 +302,12 @@ export function createApi(auth: Auth) {
     if (!(await can(c, { assignment: ["delete"] }))) return c.json({ error: "forbidden" }, 403);
     const { id, memberId } = c.req.param();
     await c.env.DB.prepare(
-      "DELETE FROM job_assignments WHERE org_id = ? AND job_id = ? AND member_id = ?"
+      "DELETE FROM job_assignments WHERE org_id = ? AND job_id = ? AND member_id = ?",
     )
       .bind(g.orgId, id, memberId)
       .run();
     await c.env.DB.prepare(
-      "UPDATE jobs SET status = 'draft', updated_at = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM job_assignments WHERE job_id = ?)"
+      "UPDATE jobs SET status = 'draft', updated_at = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM job_assignments WHERE job_id = ?)",
     )
       .bind(Date.now(), id, id)
       .run();

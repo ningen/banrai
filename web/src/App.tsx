@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { authClient, useSession } from "./lib/auth-client";
 import { api } from "./api";
 
@@ -26,7 +26,12 @@ function fmtMin(min: number | null) {
 export default function App() {
   const { data: session, isPending } = useSession();
 
-  if (isPending) return <div className="card" style={{ margin: 24 }}>loading…</div>;
+  if (isPending)
+    return (
+      <div className="card" style={{ margin: 24 }}>
+        loading…
+      </div>
+    );
   if (!session) return <AuthScreen />;
   return <Dashboard />;
 }
@@ -73,28 +78,55 @@ function AuthScreen() {
       <p className="muted">清掃事業者向け 作業管理プラットフォーム</p>
       <form className="card" onSubmit={submit}>
         <div style={{ marginBottom: 10 }}>
-          <button type="button" className={mode === "signin" ? "primary" : ""} onClick={() => setMode("signin")} style={{ marginRight: 6 }}>
+          <button
+            type="button"
+            className={mode === "signin" ? "primary" : ""}
+            onClick={() => setMode("signin")}
+            style={{ marginRight: 6 }}
+          >
             ログイン
           </button>
-          <button type="button" className={mode === "signup" ? "primary" : ""} onClick={() => setMode("signup")}>
+          <button
+            type="button"
+            className={mode === "signup" ? "primary" : ""}
+            onClick={() => setMode("signup")}
+          >
             新規登録
           </button>
         </div>
         <div style={{ marginBottom: 10 }}>
           <Labelled label="メールアドレス">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: "100%" }} />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{ width: "100%" }}
+            />
           </Labelled>
         </div>
         {mode === "signup" && (
           <div style={{ marginBottom: 10 }}>
             <Labelled label="名前">
-              <input value={name} onChange={(e) => setName(e.target.value)} required style={{ width: "100%" }} />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                style={{ width: "100%" }}
+              />
             </Labelled>
           </div>
         )}
         <div style={{ marginBottom: 10 }}>
           <Labelled label="パスワード (8文字以上)">
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} style={{ width: "100%" }} />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              style={{ width: "100%" }}
+            />
           </Labelled>
         </div>
         {error && <p className="error">{error}</p>}
@@ -113,7 +145,14 @@ function Dashboard() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
         <h1 style={{ margin: 0 }}>banrai</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <span className="muted">{session?.user.email}</span>
@@ -134,7 +173,11 @@ function Dashboard() {
                 ["roles", "ロール"],
               ] as const
             ).map(([key, label]) => (
-              <button key={key} className={tab === key ? "primary" : ""} onClick={() => setTab(key)}>
+              <button
+                key={key}
+                className={tab === key ? "primary" : ""}
+                onClick={() => setTab(key)}
+              >
                 {label}
               </button>
             ))}
@@ -157,10 +200,6 @@ function OrgSelect() {
   const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const select = async (id: string) => {
-    await authClient.organization.setActive({ organizationId: id });
-  };
 
   const accept = async () => {
     if (!pending) return;
@@ -205,14 +244,27 @@ function OrgSelect() {
       )}
       <div className="card">
         <h3 style={{ marginTop: 0 }}>事業者を選択</h3>
-        {orgs && orgs.length === 0 && <p className="muted">事業者がありません。下のフォームから作成してください。</p>}
+        {orgs && orgs.length === 0 && (
+          <p className="muted">事業者がありません。下のフォームから作成してください。</p>
+        )}
         {orgs?.map((org) => (
-          <div key={org.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--line)" }}>
+          <div
+            key={org.id}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "8px 0",
+              borderBottom: "1px solid var(--line)",
+            }}
+          >
             <div>
               <div>{org.name}</div>
               <div className="muted">{org.slug}</div>
             </div>
-            <button onClick={() => select(org.id)}>選択</button>
+            <button onClick={() => authClient.organization.setActive({ organizationId: org.id })}>
+              選択
+            </button>
           </div>
         ))}
       </div>
@@ -220,16 +272,29 @@ function OrgSelect() {
         <h3 style={{ marginTop: 0 }}>事業者を新規作成</h3>
         <div style={{ marginBottom: 10 }}>
           <Labelled label="会社名">
-            <input value={name} onChange={(e) => setName(e.target.value)} required style={{ width: "100%" }} />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              style={{ width: "100%" }}
+            />
           </Labelled>
         </div>
         <div style={{ marginBottom: 10 }}>
           <Labelled label="slug (URL/識別子)">
-            <input value={slug} onChange={(e) => setSlug(e.target.value)} required pattern="[a-z0-9-]+" style={{ width: "100%" }} />
+            <input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              required
+              pattern="[a-z0-9-]+"
+              style={{ width: "100%" }}
+            />
           </Labelled>
         </div>
         {error && <p className="error">{error}</p>}
-        <button className="primary" disabled={busy}>作成</button>
+        <button className="primary" disabled={busy}>
+          作成
+        </button>
       </form>
     </div>
   );
@@ -249,8 +314,12 @@ function Overview({ onRefetch }: { onRefetch: () => void }) {
       <p>
         あなたのロール: <strong>{member?.role}</strong>
       </p>
-      <p className="muted">事業者ごとにスタッフ (role) を招待し、作業を割り当てて曜日・月別のカレンダーで確認できます。</p>
-      <button className="primary" onClick={onRefetch}>セッションを再取得</button>
+      <p className="muted">
+        事業者ごとにスタッフ (role) を招待し、作業を割り当てて曜日・月別のカレンダーで確認できます。
+      </p>
+      <button className="primary" onClick={onRefetch}>
+        セッションを再取得
+      </button>
     </div>
   );
 }
@@ -261,16 +330,25 @@ function Services() {
   const [duration, setDuration] = useState(60);
   const [error, setError] = useState<string | null>(null);
 
-  const load = () => api<{ services: Service[] }>("/api/services").then((r) => setServices(r.services)).catch((e) => setError(e.message));
+  const load = useCallback(
+    () =>
+      api<{ services: Service[] }>("/api/services")
+        .then((r) => setServices(r.services))
+        .catch((e) => setError(e.message)),
+    [],
+  );
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
-      await api("/api/services", { method: "POST", body: JSON.stringify({ name, durationMin: Number(duration) }) });
+      await api("/api/services", {
+        method: "POST",
+        body: JSON.stringify({ name, durationMin: Number(duration) }),
+      });
       setName("");
       await load();
     } catch (err) {
@@ -285,7 +363,11 @@ function Services() {
 
   return (
     <div>
-      <form className="card" onSubmit={create} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+      <form
+        className="card"
+        onSubmit={create}
+        style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+      >
         <div>
           <Labelled label="提供する作業名 (ex: エアコンクリーニング)">
             <input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -293,7 +375,13 @@ function Services() {
         </div>
         <div>
           <Labelled label="標準所要時間 (分)">
-            <input type="number" min={15} step={15} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+            <input
+              type="number"
+              min={15}
+              step={15}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+            />
           </Labelled>
         </div>
         <button className="primary">追加</button>
@@ -313,7 +401,9 @@ function Services() {
               <td>{s.name}</td>
               <td>{s.duration_min}分</td>
               <td>
-                <button className="danger" onClick={() => remove(s.id)}>削除</button>
+                <button className="danger" onClick={() => remove(s.id)}>
+                  削除
+                </button>
               </td>
             </tr>
           ))}
@@ -329,14 +419,14 @@ function Staff() {
   const [role, setRole] = useState("member");
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const r = await authClient.organization.listMembers();
     if (r.error) setError(String((r.error as any)?.message));
     else setMembers((r.data as any)?.members ?? []);
-  };
+  }, []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const invite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,10 +445,19 @@ function Staff() {
 
   return (
     <div>
-      <form className="card" onSubmit={invite} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+      <form
+        className="card"
+        onSubmit={invite}
+        style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+      >
         <div>
           <Labelled label="スタッフのメールアドレス">
-            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              required
+            />
           </Labelled>
         </div>
         <div>
@@ -407,11 +506,15 @@ function Jobs() {
   const [serviceId, setServiceId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    const weekStart = new Date(new Date(date + "T00:00:00").getTime() - new Date(date + "T00:00:00").getDay() * 86400000)
+  const load = useCallback(async () => {
+    const weekStart = new Date(
+      new Date(date + "T00:00:00").getTime() - new Date(date + "T00:00:00").getDay() * 86400000,
+    )
       .toISOString()
       .slice(0, 10);
-    const weekEnd = new Date(new Date(weekStart + "T00:00:00").getTime() + 6 * 86400000).toISOString().slice(0, 10);
+    const weekEnd = new Date(new Date(weekStart + "T00:00:00").getTime() + 6 * 86400000)
+      .toISOString()
+      .slice(0, 10);
     try {
       const [svc, mem] = await Promise.all([
         api<{ services: Service[] }>("/api/services"),
@@ -425,10 +528,10 @@ function Jobs() {
     } catch (err) {
       setError(String((err as Error).message));
     }
-  };
+  }, [date]);
   useEffect(() => {
     load();
-  }, [date]);
+  }, [load]);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -463,10 +566,18 @@ function Jobs() {
 
   return (
     <div>
-      <form className="card" onSubmit={create} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+      <form
+        className="card"
+        onSubmit={create}
+        style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+      >
         <div>
           <Labelled label="顧客名">
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              required
+            />
           </Labelled>
         </div>
         <div>
@@ -479,7 +590,9 @@ function Jobs() {
             <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
               <option value="">(なし)</option>
               {services.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </Labelled>
@@ -487,24 +600,40 @@ function Jobs() {
         <button className="primary">作業を追加</button>
       </form>
       {error && <p className="error">{error}</p>}
-      {[...byDate.entries()].sort().map(([d, list]) => (
+      {[...byDate.entries()].toSorted().map(([d, list]) => (
         <div key={d} className="card">
           <h4 style={{ marginTop: 0 }}>{d}</h4>
           {list.map((j) => (
-            <div key={j.id} style={{ borderBottom: "1px solid var(--line)", padding: "6px 0", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div
+              key={j.id}
+              style={{
+                borderBottom: "1px solid var(--line)",
+                padding: "6px 0",
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
               <span>{fmtMin(j.start_minute)}</span>
               <strong>{j.customer_name}</strong>
               <span className="muted">{j.service_name ?? "（サービス未設定）"}</span>
-              <span className="muted">({j.duration_min}分) {j.status}</span>
+              <span className="muted">
+                ({j.duration_min}分) {j.status}
+              </span>
               {j.assignments?.length === 0 && <span className="muted">未割当</span>}
               {j.assignments?.map((a) => (
-                <span key={a.member_id} className="muted">→ {members.find((m) => m.user?.id === a.member_id)?.user?.name ?? "?"} </span>
+                <span key={a.member_id} className="muted">
+                  → {members.find((m) => m.user?.id === a.member_id)?.user?.name ?? "?"}{" "}
+                </span>
               ))}
               <span style={{ marginLeft: "auto" }}>
                 <select defaultValue="" onChange={(e) => assign(j.id, e.target.value)}>
                   <option value="">staff に割当…</option>
                   {members.map((m) => (
-                    <option key={m.id} value={m.user?.id}>{m.user?.name}</option>
+                    <option key={m.id} value={m.user?.id}>
+                      {m.user?.name}
+                    </option>
                   ))}
                 </select>
               </span>
@@ -550,23 +679,37 @@ function Roles() {
 
   return (
     <div className="card">
-      <p className="muted">事業者内でカスタムロールを作成して staff に割り当てられます (Dynamic Access Control)。</p>
+      <p className="muted">
+        事業者内でカスタムロールを作成して staff に割り当てられます (Dynamic Access Control)。
+      </p>
       <form onSubmit={create}>
         <div style={{ marginBottom: 10 }}>
           <Labelled label="ロール名">
-            <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="ex: リーダー" />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="ex: リーダー"
+            />
           </Labelled>
         </div>
         {Object.entries(PERMS).map(([resource, actions]) => (
           <div key={resource} style={{ marginBottom: 6 }}>
             <strong style={{ fontSize: 13 }}>{resource}</strong>{" "}
             {actions.map((a) => (
-              <label key={a} style={{ display: "inline-flex", gap: 4, margin: "0 10px 0 0", fontSize: 13 }}>
+              <label
+                key={a}
+                style={{ display: "inline-flex", gap: 4, margin: "0 10px 0 0", fontSize: 13 }}
+              >
                 <input
                   type="checkbox"
                   checked={perms.includes(`${resource}:${a}`)}
                   onChange={(e) =>
-                    setPerms((p) => (e.target.checked ? [...p, `${resource}:${a}`] : p.filter((x) => x !== `${resource}:${a}`)))
+                    setPerms((p) =>
+                      e.target.checked
+                        ? [...p, `${resource}:${a}`]
+                        : p.filter((x) => x !== `${resource}:${a}`),
+                    )
                   }
                 />
                 {a}

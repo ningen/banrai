@@ -42,6 +42,17 @@ npm run dev                       # worker: http://localhost:8787 / web: http://
 
 `wrangler dev` 中のメールは `[mail:skip]` としてログされる (`EMAIL_FROM` 未設定時)。
 
+## ツールチェーン
+
+- **lint**: oxlint (`npm run lint`)
+- **format**: oxfmt (`npm run fmt` / `npm run fmt:check`)
+- **test**: vitest + `@cloudflare/vitest-plugin` — 実 workerd 上で動作する
+  (unit: `src/shared/permissions.test.ts` / integration: `src/server/app.test.ts`)
+  - テストは `wrangler.jsonc` を利用し、`migrations/*.sql` を D1 に適用してから実行
+- **typecheck**: `npm run check:types`
+- まとめて実行: `npm run check`
+- `wrangler.jsonc` を変更したら `npx wrangler types` で `worker-configuration.d.ts` を更新
+
 ## 本番デプロイ(初回)
 
 ```bash
@@ -89,11 +100,11 @@ npx wrangler secret put BOOTSTRAP_ADMIN_EMAIL   # 例: you@example.com
 マイグレーション → secret 投入 → wrangler deploy を実行します。
 リポジトリの Actions secrets に以下を設定:
 
-| Secret | 説明 |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | Workers Scripts:Edit / D1:Edit 権限の API token |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
-| `BETTER_AUTH_SECRET` | 本番用シークレット |
+| Secret                  | 説明                                            |
+| ----------------------- | ----------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Workers Scripts:Edit / D1:Edit 権限の API token |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID                           |
+| `BETTER_AUTH_SECRET`    | 本番用シークレット                              |
 
 ## スキーマ再生成
 

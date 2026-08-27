@@ -8,26 +8,31 @@
     "directory": "./web/dist",
     "binding": "ASSETS",
     "run_worker_first": true,
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
   "vars": {
-    "BETTER_AUTH_URL": "https://banrai.example.workers.dev",
-    "EMAIL_FROM": ""
+    "BETTER_AUTH_URL": "https://banrai.nngn.dev",
   },
+  "routes": [
+    {
+      "pattern": "banrai.nngn.dev",
+      "custom_domain": true,
+    },
+  ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "banrai-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "./migrations"
-    }
+      "database_id": "f41c9178-ba2e-4bc8-a7bd-d4f9695b2177",
+      "migrations_dir": "./migrations",
+    },
   ],
   "send_email": [
     {
-      "name": "EMAIL"
-    }
-  ]
+      "name": "EMAIL",
+    },
+  ],
 }

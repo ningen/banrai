@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { buildAuthPlugins, buildEmailConfig } from "./plugins";
-import type { Env } from "./types";
 
 export function createAuth(env: Env) {
   return betterAuth({
