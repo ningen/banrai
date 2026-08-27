@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { CalendarDays, ListTodo, Users, Sparkles, ShieldCheck } from "lucide-react";
 import { authClient, useSession } from "./lib/auth-client";
+import { Toaster } from "./components/ui/sonner";
+import { Button } from "./components/ui/button";
 import CalendarPage from "./pages/CalendarPage";
 import JobsPage from "./pages/JobsPage";
 import StaffPage from "./pages/StaffPage";
@@ -8,12 +11,12 @@ import RolesPage from "./pages/RolesPage";
 
 type Tab = "cal" | "jobs" | "staff" | "services" | "roles";
 
-const NAV: { key: Tab; ico: string; label: string }[] = [
-  { key: "cal", ico: "▦", label: "週間カレンダー" },
-  { key: "jobs", ico: "☰", label: "作業一覧" },
-  { key: "staff", ico: "◌", label: "スタッフ" },
-  { key: "services", ico: "✦", label: "サービス" },
-  { key: "roles", ico: "◎", label: "ロール" },
+const NAV: { key: Tab; icon: typeof CalendarDays; label: string }[] = [
+  { key: "cal", icon: CalendarDays, label: "週間カレンダー" },
+  { key: "jobs", icon: ListTodo, label: "作業一覧" },
+  { key: "staff", icon: Users, label: "スタッフ" },
+  { key: "services", icon: Sparkles, label: "サービス" },
+  { key: "roles", icon: ShieldCheck, label: "ロール" },
 ];
 
 function Labelled(props: { label: string; children: React.ReactNode }) {
@@ -32,7 +35,12 @@ export default function App() {
   if (!session) return <AuthScreen />;
   const orgId = (session.session as { activeOrganizationId?: string | null }).activeOrganizationId;
   if (!orgId) return <OrgSelect />;
-  return <Shell userEmail={session.user.email} />;
+  return (
+    <>
+      <Shell userEmail={session.user.email} />
+      <Toaster />
+    </>
+  );
 }
 
 function AuthScreen() {
@@ -69,27 +77,27 @@ function AuthScreen() {
         background: "var(--paper)",
       }}
     >
-      <form className="card" onSubmit={submit} style={{ width: 360, padding: 26 }}>
+      <div className="card" style={{ width: 360, padding: 26 }}>
         <div className="brand" style={{ padding: "0 0 14px" }}>
           banrai <small>清掃事業者向け 作業管理</small>
         </div>
         <div style={{ marginBottom: 14, display: "flex", gap: 6 }}>
-          <button
+          <Button
             type="button"
-            className={mode === "signin" ? "primary" : ""}
+            variant={mode === "signin" ? "default" : "outline"}
             onClick={() => setMode("signin")}
           >
             ログイン
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={mode === "signup" ? "primary" : ""}
+            variant={mode === "signup" ? "default" : "outline"}
             onClick={() => setMode("signup")}
           >
             新規登録
-          </button>
+          </Button>
         </div>
-        <div style={{ marginBottom: 12 }}>
+        <form onSubmit={submit} className="space-y-3">
           <Labelled label="メールアドレス">
             <input
               type="email"
@@ -99,9 +107,7 @@ function AuthScreen() {
               style={{ width: "100%" }}
             />
           </Labelled>
-        </div>
-        {mode === "signup" && (
-          <div style={{ marginBottom: 12 }}>
+          {mode === "signup" && (
             <Labelled label="名前">
               <input
                 value={name}
@@ -110,9 +116,7 @@ function AuthScreen() {
                 style={{ width: "100%" }}
               />
             </Labelled>
-          </div>
-        )}
-        <div style={{ marginBottom: 16 }}>
+          )}
           <Labelled label="パスワード (8文字以上)">
             <input
               type="password"
@@ -123,12 +127,12 @@ function AuthScreen() {
               style={{ width: "100%" }}
             />
           </Labelled>
-        </div>
-        {error && <p className="error">{error}</p>}
-        <button className="primary" disabled={busy} style={{ width: "100%" }}>
-          {busy ? "…" : mode === "signin" ? "ログイン" : "登録する"}
-        </button>
-      </form>
+          {error && <p className="error">{error}</p>}
+          <Button disabled={busy} style={{ width: "100%" }}>
+            {busy ? "…" : mode === "signin" ? "ログイン" : "登録する"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
@@ -177,9 +181,9 @@ function OrgSelect() {
     <div style={{ maxWidth: 460, margin: "60px auto", padding: "0 16px" }}>
       {pending && (
         <div className="card">
-          <button className="primary" onClick={accept} disabled={busy}>
+          <Button onClick={accept} disabled={busy}>
             招待を承諾する
-          </button>
+          </Button>
           {error && <p className="error">{error}</p>}
         </div>
       )}
@@ -203,39 +207,38 @@ function OrgSelect() {
               <div style={{ fontWeight: 600 }}>{org.name}</div>
               <div className="muted num">{org.slug}</div>
             </div>
-            <button onClick={() => authClient.organization.setActive({ organizationId: org.id })}>
+            <Button
+              variant="outline"
+              onClick={() => authClient.organization.setActive({ organizationId: org.id })}
+            >
               選択
-            </button>
+            </Button>
           </div>
         ))}
       </div>
-      <form className="card" onSubmit={create}>
-        <h3 style={{ marginTop: 0 }}>事業者を新規作成</h3>
-        <div style={{ marginBottom: 12 }}>
-          <Labelled label="会社名">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              style={{ width: "100%" }}
-            />
-          </Labelled>
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <Labelled label="slug (識別子)">
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              required
-              pattern="[a-z0-9-]+"
-              style={{ width: "100%" }}
-            />
-          </Labelled>
-        </div>
+      <form className="card" onSubmit={create} style={{ display: "grid", gap: 12 }}>
+        <h3 style={{ margin: 0 }}>事業者を新規作成</h3>
+        <Labelled label="会社名">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            style={{ width: "100%" }}
+          />
+        </Labelled>
+        <Labelled label="slug (識別子)">
+          <input
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            required
+            pattern="[a-z0-9-]+"
+            style={{ width: "100%" }}
+          />
+        </Labelled>
         {error && <p className="error">{error}</p>}
-        <button className="primary" disabled={busy}>
+        <Button type="submit" disabled={busy}>
           作成
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -251,16 +254,19 @@ function Shell({ userEmail }: { userEmail: string }) {
         <div className="brand">
           banrai <small>作業管理</small>
         </div>
-        {NAV.map((n) => (
-          <button
-            key={n.key}
-            className={`nav-item ${tab === n.key ? "active" : ""}`}
-            onClick={() => setTab(n.key)}
-          >
-            <span className="ico">{n.ico}</span>
-            {n.label}
-          </button>
-        ))}
+        {NAV.map((n) => {
+          const Icon = n.icon;
+          return (
+            <button
+              key={n.key}
+              className={`nav-item ${tab === n.key ? "active" : ""}`}
+              onClick={() => setTab(n.key)}
+            >
+              <Icon className="size-4" />
+              {n.label}
+            </button>
+          );
+        })}
         <div className="spacer" />
         <div className="org-chip">
           事業者
@@ -269,9 +275,9 @@ function Shell({ userEmail }: { userEmail: string }) {
         <div className="user-chip">
           <span className="avatar">{userEmail.slice(0, 1).toUpperCase()}</span>
           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{userEmail}</span>
-          <button className="sm" onClick={() => authClient.signOut()}>
+          <Button size="sm" variant="ghost" onClick={() => authClient.signOut()}>
             退出
-          </button>
+          </Button>
         </div>
       </aside>
       <main className="main">

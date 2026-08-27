@@ -1,13 +1,53 @@
 /* ------------------------------------------------------------------ */
 /* banrai design tokens — Paper & Ink Indigo                          */
 /* フォント: IBM Plex Sans + IBM Plex Sans JP                          */
+/* Tailwind v4 + shadcn/ui 共存構成                                    */
 /* ------------------------------------------------------------------ */
 
-:root {
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
   --font-sans:
     "IBM Plex Sans", "IBM Plex Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
     "Yu Gothic UI", system-ui, sans-serif;
 
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+}
+
+:root {
   /* palette */
   --paper: #f7f7f5;
   --surface: #ffffff;
@@ -25,6 +65,29 @@
   --indigo-10: #eef2fd;
   --indigo-8: #f3f6fe;
 
+  /* shadcn maps */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink-soft);
+  --muted-2: var(--muted);
+  --muted-foreground: var(--muted);
+  --accent: var(--indigo-10);
+  --accent-foreground: var(--indigo);
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--indigo-20);
+  --radius: 10px;
+  --radius-lg: 14px;
+
   /* service colors (default + preset candidates) */
   --svc-aircon: #29a3e8;
   --svc-house: #e8a33d;
@@ -36,8 +99,6 @@
   --danger: #c93f3f;
   --danger-soft: #fbebeb;
 
-  --radius: 10px;
-  --radius-lg: 14px;
   --shadow-1: 0 1px 2px rgba(27, 27, 25, 0.06);
   --shadow-2: 0 8px 24px rgba(27, 27, 25, 0.1);
 

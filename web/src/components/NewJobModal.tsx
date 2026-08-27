@@ -1,7 +1,14 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import type { Service } from "../types";
 import { api } from "../api";
-import { todayISO } from "../date";
+import { todayISO, fmtMin } from "../date";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 
 type Props = {
   services: Service[];
@@ -19,12 +26,10 @@ export default function NewJobModal({ services, defaultDate, onClose, onCreated 
   const [durationMin, setDurationMin] = useState(60);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    setError(null);
     try {
       await api("/api/jobs", {
         method: "POST",
@@ -38,113 +43,95 @@ export default function NewJobModal({ services, defaultDate, onClose, onCreated 
           notes,
         }),
       });
+      toast.success(`「${customerName}」の作業を追加しました`);
       onCreated();
       onClose();
     } catch (err) {
-      setError(String((err as Error).message));
+      toast.error(String((err as Error).message));
+    } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="modal-wrap">
-      <div className="overlay" onClick={onClose} style={{ position: "fixed", inset: 0 }} />
-      <form className="modal" onSubmit={create}>
-        <h3 style={{ margin: "0 0 14px" }}>作業を追加</h3>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>顧客名 *</label>
-          <input
-            autoFocus
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="ex: 丸山ビル 502号室"
-            required
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>サービス</label>
-          <select
-            value={serviceId}
-            onChange={(e) => setServiceId(e.target.value)}
-            style={{ width: "100%" }}
-          >
-            <option value="">（未設定）</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-row" style={{ marginBottom: 12 }}>
-          <div>
-            <label>日付</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              style={{ width: "100%" }}
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>作業を追加</DialogTitle>
+          <DialogDescription>顧客・日時・サービスを入力して追加。</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={create} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="customer">顧客名 *</Label>
+            <Input
+              id="customer"
+              autoFocus
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="ex: 丸山ビル 502号室"
+              required
             />
           </div>
-          <div>
-            <label>開始時刻</label>
-            <input
-              type="time"
-              value={`${String(Math.floor(startMinute / 60)).padStart(2, "0")}:${String(startMinute % 60).padStart(2, "0")}`}
-              onChange={(e) => {
-                const [h, m] = e.target.value.split(":").map(Number);
-                setStartMinute((Number.isNaN(h) ? 9 : h) * 60 + (Number.isNaN(m) ? 0 : m));
-              }}
-              style={{ width: "100%" }}
-            />
+          <div className="space-y-1.5">
+            <Label>サービス</Label>
+            <Select value={serviceId} onValueChange={setServiceId}>
+              <SelectTrigger>
+                <SelectValue placeholder="（未設定）" />
+              </SelectTrigger>
+              <SelectContent>
+                {services.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div>
-            <label>所要 (分)</label>
-            <input
-              type="number"
-              min={15}
-              step={15}
-              value={durationMin}
-              onChange={(e) => setDurationMin(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label>日付</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>開始時刻</Label>
+              <Input
+                type="time"
+                value={fmtMin(startMinute)}
+                onChange={(e) => {
+                  const [h, m] = e.target.value.split(":").map(Number);
+                  setStartMinute((Number.isNaN(h) ? 9 : h) * 60 + (Number.isNaN(m) ? 0 : m));
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>所要 (分)</Label>
+              <Input
+                type="number"
+                min={15}
+                step={15}
+                value={durationMin}
+                onChange={(e) => setDurationMin(Number(e.target.value))}
+              />
+            </div>
           </div>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>住所</label>
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label>メモ</label>
-          <textarea
-            rows={2}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        {error && <p className="error">{error}</p>}
-
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button type="button" onClick={onClose}>
-            キャンセル
-          </button>
-          <button type="submit" className="primary" disabled={busy}>
-            {busy ? "保存中…" : "追加する"}
-          </button>
-        </div>
-      </form>
-    </div>
+          <div className="space-y-1.5">
+            <Label>住所</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>メモ</Label>
+            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              キャンセル
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "保存中…" : "追加する"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
