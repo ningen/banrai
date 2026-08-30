@@ -38,3 +38,4 @@ description: banrai (清掃事業者向け作業管理 SaaS) の開発ガイド�
 - カンバンは @dnd-kit sortable。ドロップ位置挿入は position で永続化
 - secrets はコードに入れない (`.dev.vars` / wrangler secret)
 - コードコメント禁止 → 判断は docs/adr に書く
+- MCP: `https://banrai.nngn.dev/mcp` (OAuth 2.0 / RFC 9971, `src/server/mcp/`)。ツールの権限は `perm.ts` の `can()` を都度検証 (親 API と同じ statement)。トークンはユーザー+組織バインド、refresh は回転

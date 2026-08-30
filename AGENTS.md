@@ -25,17 +25,22 @@
 ## アーキテクチャ地図
 
 ```
-src/index.ts            エントリ: assets フォールバック + Hono
+src/index.ts            エントリ: assets フォールバック + Hono (/api と MCP 系パスを先にルーティング)
 src/server/auth.ts      better-auth インスタンス (plugins.ts が設定を組み立て)
 src/server/plugins.ts   認証プラグイン構成 (admin/organization/email)
 src/server/routes.ts    業務 API (Hono)。org スコープ + hasPermission で保護
 src/server/statuses.ts  ジョブステータスのデフォルトシード/一覧
 src/server/demo.ts      デモテナントの冪等シード (POST /api/demo/login)
 src/server/email.ts     メール送信 (テンプレート含む)
+src/server/mcp/         MCP サーバー (streamable HTTP + OAuth 2.0, RFC 9971)
+  index.ts              /mcp ルート + bearer 検証 + well-known メタデータ
+  oauth.ts              認可サーバー (/register /authorize /token)+ ログイン/同意ページ
+  tools.ts              MCP ツール定義 (18個)。権限は perm.ts の can() で都度検証
+  perm.ts               better-auth の hasPermission と同等のローカル解決 (member.role + organizationRole)
 src/shared/permissions.ts  権限 statement/ロール定義 (サーバー・UI 共用)
 migrations/*.sql        D1 マイグレーション (番号順、テストにも明示追加が必要)
 web/src/pages/          画面 (Calendar/Jobs(Kanban)/Staff/Services/Customers/Roles)
-web/src/components/      コンポーネント (ui/ は shadcn、他は業務部品)
+web/src/components/     コンポーネント (ui/ は shadcn、他は業務部品)
 web/src/date.ts         日付・時刻ユーティリティ (**JST 固定**)
 ```
 
@@ -46,12 +51,13 @@ web/src/date.ts         日付・時刻ユーティリティ (**JST 固定**)
 2. **カラム名**: 業務テーブル (services/jobs/customers/job_statuses/job_assignments) は snake_case、better-auth テーブル (user/session/organization/member…) は camelCase。SQL を書くとき混同しないこと。
 3. **JSON カラム** (services.options, customers.phones/emails/addresses, organizationRole.permission) は API で必ず parse/stringify する。GET で生の文字列を返すな。
 4. **権限**: 新リソースは `src/shared/permissions.ts` の statement + owner/admin は full、member は read のみ。API は `guard()` + `can()` を使用。
-5. **API の追加**: routes.ts の zod schema → INSERT/UPDATE は explicit columns。`jobs` の INSERT は列を明示 (17列)。
+5. **API の追加**: routes.ts の zod schema → INSERT/UPDATE は explicit columns。`jobs` の INSERT は列を明示 (17列)。MCP ツールも同じ Zod スキーマを routes.ts から import して使うこと (二重定義禁止)。
 6. **マイグレーション**: 新しい `migrations/NNNN_*.sql` を追加したら、`src/server/app.test.ts` の `beforeAll` の適用リストにも必ず足す。
 7. **デモ**: `POST /api/demo/login` が冪等にデモテナント (demo@example.com 等) をシードする。デモ口座にはメールを送らない (email.ts で example.com を除外)。
 8. **コメントを書かない** (コード本体)。README/ADR に書く。
 9. 秘密 (BETTER_AUTH_SECRET 等) をコードに書かない。.dev.vars / Cloudflare secrets / CI secrets で管理。
 10. **UI 変更後は必ず**: `npm run check` + `npm run build:web` (必要なら storybook build)。
+11. **MCP サーバー**: `https://banrai.nngn.dev/mcp` (streamable HTTP + OAuth 2.0 / RFC 9971)。クライアントは動的登録 → ブラウザでログイン/同意 → token。**ツールの権限チェックは親 API と同じ statement を perm.ts の `can()` で都度検証** — MCP 独自の抜け道を作らない。トークンはユーザー+組織にバインドされ、refresh は回転する (mcp_tokens テーブル)。認可サーバー変更時は OAuth 仕様 (RFC 6749/7591/8414/9728/8707 + PKCE) を必ず参照すること。
 
 ## デプロイフロー (本番: banrai.nngn.dev)
 

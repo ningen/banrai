@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, ListTodo, Users, Sparkles, ShieldCheck, Contact } from "lucide-react";
+import { CalendarDays, ListTodo, Users, Sparkles, ShieldCheck, Contact, Plug } from "lucide-react";
 import { authClient, useSession } from "./lib/auth-client";
 import { Toaster } from "./components/ui/sonner";
 import { Button } from "./components/ui/button";
@@ -9,8 +9,9 @@ import StaffPage from "./pages/StaffPage";
 import ServicesPage from "./pages/ServicesPage";
 import RolesPage from "./pages/RolesPage";
 import CustomersPage from "./pages/CustomersPage";
+import McpPage from "./pages/McpPage";
 
-type Tab = "cal" | "jobs" | "customers" | "staff" | "services" | "roles";
+type Tab = "cal" | "jobs" | "customers" | "staff" | "services" | "roles" | "mcp";
 
 const NAV: { key: Tab; icon: typeof CalendarDays; label: string }[] = [
   { key: "cal", icon: CalendarDays, label: "スケジュール" },
@@ -19,6 +20,7 @@ const NAV: { key: Tab; icon: typeof CalendarDays; label: string }[] = [
   { key: "staff", icon: Users, label: "スタッフ" },
   { key: "services", icon: Sparkles, label: "サービス" },
   { key: "roles", icon: ShieldCheck, label: "ロール" },
+  { key: "mcp", icon: Plug, label: "AI 接続" },
 ];
 
 function Labelled(props: { label: string; children: React.ReactNode }) {
@@ -321,6 +323,7 @@ function Shell({ userEmail }: { userEmail: string }) {
         {tab === "staff" && <StaffPage />}
         {tab === "services" && <ServicesPage />}
         {tab === "roles" && <RolesPage />}
+        {tab === "mcp" && <McpPage />}
       </main>
     </div>
   );

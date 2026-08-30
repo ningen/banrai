@@ -4,7 +4,7 @@ import type { Auth } from "./auth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const serviceSchema = z.object({
+export const serviceSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional().default(""),
   durationMin: z.number().int().min(15).max(720).optional().default(60),
@@ -35,7 +35,7 @@ const addressSchema = z.object({
   rest: z.string().max(200).optional().default(""),
 });
 
-const customerSchema = z.object({
+export const customerSchema = z.object({
   name: z.string().min(1).max(100),
   phones: STRING_LIST,
   emails: STRING_LIST,
@@ -43,7 +43,7 @@ const customerSchema = z.object({
   notes: z.string().max(1000).optional().default(""),
 });
 
-const statusSchema = z.object({
+export const statusSchema = z.object({
   name: z.string().min(1).max(30),
   color: z
     .string()
@@ -52,7 +52,7 @@ const statusSchema = z.object({
   done: z.boolean().optional().default(false),
 });
 
-const jobSchema = z.object({
+export const jobSchema = z.object({
   serviceId: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
   customerName: z.string().min(1).max(100),
@@ -76,7 +76,7 @@ const jobSchema = z.object({
   position: z.number().int().min(0).max(1_000_000).optional(),
 });
 
-const assignSchema = z.object({
+export const assignSchema = z.object({
   memberId: z.string().min(1),
 });
 
@@ -144,7 +144,7 @@ const PREFECTURES = [
   "沖縄県",
 ];
 
-function joinAddressParts(a: {
+export function joinAddressParts(a: {
   postal: string;
   prefecture: string;
   city: string;
@@ -154,7 +154,7 @@ function joinAddressParts(a: {
   return a.postal ? `〒${a.postal} ${body}`.trim() : body;
 }
 
-function normalizeAddress(value: unknown): {
+export function normalizeAddress(value: unknown): {
   postal: string;
   prefecture: string;
   city: string;
@@ -723,6 +723,34 @@ export function createApi(auth: Auth) {
     await c.env.DB.prepare("DELETE FROM job_statuses WHERE org_id = ? AND name = ?")
       .bind(g.orgId, name)
       .run();
+    return c.json({ ok: true });
+  });
+
+  api.get("/mcp/connections", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    const rows = (await c.env.DB.prepare(
+      "SELECT c.id AS client_id, c.name AS client_name, t.scope, MIN(t.created_at) AS created_at, MAX(t.expires_at) AS expires_at, COUNT(*) AS token_count, GROUP_CONCAT(DISTINCT COALESCE(o.name, t.org_id)) AS orgs FROM mcp_tokens t JOIN mcp_clients c ON c.id = t.client_id LEFT JOIN organization o ON o.id = t.org_id WHERE t.user_id = ? GROUP BY c.id ORDER BY MIN(t.created_at) DESC",
+    )
+      .bind(g.session.user.id)
+      .all()) as { results: any[] };
+    return c.json({ connections: rows.results });
+  });
+
+  api.delete("/mcp/connections/:clientId", async (c) => {
+    const g = await guard(c);
+    if (g instanceof Response) return g;
+    const { clientId } = c.req.param();
+    await c.env.DB.batch([
+      c.env.DB.prepare("DELETE FROM mcp_tokens WHERE user_id = ? AND client_id = ?").bind(
+        g.session.user.id,
+        clientId,
+      ),
+      c.env.DB.prepare("DELETE FROM mcp_auth_codes WHERE user_id = ? AND client_id = ?").bind(
+        g.session.user.id,
+        clientId,
+      ),
+    ]);
     return c.json({ ok: true });
   });
 
